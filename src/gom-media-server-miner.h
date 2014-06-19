@@ -53,9 +53,12 @@ G_BEGIN_DECLS
 
 typedef struct _GomMediaServerMiner GomMediaServerMiner;
 typedef struct _GomMediaServerMinerClass GomMediaServerMinerClass;
+typedef struct _GomMediaServerMinerPrivate GomMediaServerMinerPrivate;
 
 struct _GomMediaServerMiner {
   GomMiner parent;
+
+  GomMediaServerMinerPrivate *priv;
 };
 
 struct _GomMediaServerMinerClass {
