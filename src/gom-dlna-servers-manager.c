@@ -276,12 +276,7 @@ GomDlnaServer *
 gom_dlna_servers_manager_get_server (GomDlnaServersManager *self,
                                      const gchar           *udn)
 {
-  GomDlnaServersManagerPrivate *priv = self->priv;
-  GomDlnaServer *server;
-
-  server = GOM_DLNA_SERVER (g_hash_table_lookup (priv->udn_to_server, udn));
-
-  return server != NULL ? g_object_ref (server) : NULL;
+  return g_hash_table_lookup (self->priv->udn_to_server, udn);
 }
 
 
