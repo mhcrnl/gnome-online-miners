@@ -286,7 +286,7 @@ gom_dlna_server_search_objects (GomDlnaServer *self, GError **error)
   GomDlnaServerPrivate *priv = self->priv;
   GVariant *out = NULL;
   gchar *query = g_strdup_printf ("Type = \"image.photo\"");
-  const gchar const *filter[] = {"DisplayName", "URLs", "Path", "MIMEType"};
+  const gchar const *filter[] = {"DisplayName", "URLs", "Path", "MIMEType", NULL};
 
   upnp_media_container2_call_search_objects_sync (priv->container,
                                                   query,
