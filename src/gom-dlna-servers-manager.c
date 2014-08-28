@@ -93,6 +93,11 @@ gom_dlna_servers_manager_server_found_cb (GomDlnaServersManager *self,
     }
 
   udn = gom_dlna_server_get_udn (server);
+  g_debug ("%s '%s' %s %s",
+           G_STRFUNC,
+           gom_dlna_server_get_friendly_name (server),
+           udn,
+           object_path);
   g_hash_table_insert (priv->servers, (gpointer) object_path, server);
   g_hash_table_insert (priv->udn_to_server, (gpointer) udn, server);
   g_signal_emit (self, signals[SERVER_FOUND], 0, server);
