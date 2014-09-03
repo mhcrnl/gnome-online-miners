@@ -1,3 +1,11 @@
+Overview of changes in 3.13.91
+==============================
+
+* Support PicasaWeb (728878)
+
+* Support DLNA media servers (728912)
+
+
 Overview of changes in 3.13.3
 =============================
 
