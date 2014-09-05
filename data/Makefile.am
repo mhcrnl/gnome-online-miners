@@ -16,6 +16,11 @@ org.gnome.OnlineMiners.GData.service: org.gnome.OnlineMiners.GData.service.in Ma
 		[ -d $(@D) ] || $(mkdir_p) $(@D) ; \
 		sed -e "s|\@libexecdir\@|$(libexecdir)|" $< > $@.tmp && mv $@.tmp $@
 
+org.gnome.OnlineMiners.MediaServer.service: org.gnome.OnlineMiners.MediaServer.service.in Makefile
+	$(AM_V_GEN)	\
+		[ -d $(@D) ] || $(mkdir_p) $(@D) ; \
+		sed -e "s|\@libexecdir\@|$(libexecdir)|" $< > $@.tmp && mv $@.tmp $@
+
 org.gnome.OnlineMiners.Owncloud.service: org.gnome.OnlineMiners.Owncloud.service.in Makefile
 	$(AM_V_GEN)	\
 		[ -d $(@D) ] || $(mkdir_p) $(@D) ; \
@@ -30,6 +35,7 @@ service_in_files = \
     org.gnome.OnlineMiners.Facebook.service.in \
     org.gnome.OnlineMiners.Flickr.service.in \
     org.gnome.OnlineMiners.GData.service.in \
+    org.gnome.OnlineMiners.MediaServer.service.in \
     org.gnome.OnlineMiners.Owncloud.service.in \
     org.gnome.OnlineMiners.Zpj.service.in \
     $(NULL)
