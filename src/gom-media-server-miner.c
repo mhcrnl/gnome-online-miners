@@ -268,7 +268,7 @@ gom_media_server_miner_class_init (GomMediaServerMinerClass *klass)
 {
   GomMinerClass *miner_class = GOM_MINER_CLASS (klass);
 
-  miner_class->goa_provider_type = "media_server";
+  miner_class->goa_provider_type = "media-server";
   miner_class->miner_identifier = MINER_IDENTIFIER;
   miner_class->version = 1;
 
