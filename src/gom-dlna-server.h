@@ -50,6 +50,18 @@ G_BEGIN_DECLS
   (G_TYPE_INSTANCE_GET_CLASS ((obj), \
    GOM_TYPE_DLNA_SERVER, GomDlnaServerClass))
 
+typedef struct _GomDlnaPhotoItem     GomDlnaPhotoItem;
+
+struct _GomDlnaPhotoItem
+{
+  gchar *name;
+  gchar *mimetype;
+  gchar *path;
+  gchar *url;
+};
+
+void                  gom_dlna_photo_item_free                  (GomDlnaPhotoItem *photo);
+
 typedef struct _GomDlnaServer        GomDlnaServer;
 typedef struct _GomDlnaServerClass   GomDlnaServerClass;
 typedef struct _GomDlnaServerPrivate GomDlnaServerPrivate;
@@ -85,6 +97,8 @@ GVariant             *gom_dlna_server_search_objects            (GomDlnaServer  
 const gchar          *gom_dlna_server_get_friendly_name         (GomDlnaServer  *self);
 
 const gchar          *gom_dlna_server_get_udn                   (GomDlnaServer  *self);
+
+GList                *gom_dlna_server_get_photos                (GomDlnaServer  *self);
 
 G_END_DECLS
 

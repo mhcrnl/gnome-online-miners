@@ -1,6 +1,6 @@
 /*
  * GNOME Online Miners - crawls through your online content
- * Copyright (c) 2014 Pranav Kant
+ * Copyright (c) 2014, 2015 Pranav Kant
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,7 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
  *
- * Author: Pranav Kant <pranav913@gmail.com>
+ * Author: Pranav Kant <pranavk@gnome.org>
  *
  */
 
@@ -28,7 +28,6 @@
 #include "gom-dlna-server.h"
 #include "gom-dlna-servers-manager.h"
 #include "gom-media-server-miner.h"
-#include "gom-utils.h"
 
 #define MINER_IDENTIFIER "gd:media-server:miner:a4a47a3e-eb55-11e3-b983-14feb59cfa0e"
 
@@ -38,52 +37,10 @@ struct _GomMediaServerMinerPrivate {
 
 G_DEFINE_TYPE_WITH_PRIVATE (GomMediaServerMiner, gom_media_server_miner, GOM_TYPE_MINER)
 
-typedef struct {
-  gchar *name;
-  gchar *mimetype;
-  gchar *path;
-  gchar *url;
-} PhotoItem;
-
-static PhotoItem *
-photo_item_new (GVariant *var)
-{
-  GVariant *tmp;
-  PhotoItem *photo;
-  const gchar *str;
-
-  photo = g_slice_new0 (PhotoItem);
-
-  g_variant_lookup (var, "DisplayName", "&s", &str);
-  photo->name = gom_filename_strip_extension (str);
-
-  g_variant_lookup (var, "MIMEType", "&s", &str);
-  photo->mimetype = g_strdup (str);
-
-  g_variant_lookup (var, "Path", "&o", &str);
-  photo->path = g_strdup (str);
-
-  g_variant_lookup (var, "URLs", "@as", &tmp);
-  g_variant_get_child (tmp, 0, "&s", &str);
-  photo->url = g_strdup (str);
-  g_variant_unref (tmp);
-
-  return photo;
-}
-
-static void
-photo_item_free (PhotoItem *photo)
-{
-  g_free (photo->name);
-  g_free (photo->mimetype);
-  g_free (photo->path);
-  g_free (photo->url);
-  g_slice_free (PhotoItem, photo);
-}
 
 static gboolean
 account_miner_job_process_photo (GomAccountMinerJob *job,
-                                 PhotoItem *photo,
+                                 GomDlnaPhotoItem *photo,
                                  GError **error)
 {
   const gchar *photo_id;
@@ -155,48 +112,6 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   return TRUE;
 }
 
-static GList *
-get_photos (GomMediaServerMiner *self,
-            const gchar *udn)
-{
-  GomDlnaServer *server;
-  GList *photos_list = NULL;
-  GError *error = NULL;
-  GVariant *out, *var;
-  GVariantIter *iter = NULL;
-  PhotoItem *photo;
-
-  server = gom_dlna_servers_manager_get_server (self->priv->mngr, udn);
-  if (server == NULL)
-    return NULL; /* Server is offline. */
-
-  if (gom_dlna_server_get_searchable (server))
-    {
-      out = gom_dlna_server_search_objects (server, &error);
-      if (error != NULL)
-        {
-          g_warning ("Unable to search objects on server : %s",
-                     error->message);
-          g_error_free (error);
-          return NULL;
-        }
-
-      g_variant_get (out, "aa{sv}", &iter);
-      while (g_variant_iter_loop (iter, "@a{sv}", &var))
-        {
-          photo = photo_item_new (var);
-          photos_list = g_list_prepend (photos_list, photo);
-        }
-
-      g_variant_iter_free (iter);
-    }
-  else
-    {
-      /* TODO: Implement an algo here for !searchable devices. */
-    }
-
-  return photos_list;
-}
 
 static void
 query_media_server (GomAccountMinerJob *job,
@@ -205,10 +120,11 @@ query_media_server (GomAccountMinerJob *job,
   GomMediaServerMiner *self = GOM_MEDIA_SERVER_MINER (job->miner);
   GomMediaServerMinerPrivate *priv = self->priv;
   GError *local_error = NULL;
-  GoaMediaServer *server;
+  GoaMediaServer *media_server;
   GList *l;
   GList *photos_list;
   GoaObject *object;
+  GomDlnaServer *dlna_server;
   const gchar *udn;
 
   object = GOA_OBJECT (g_hash_table_lookup (job->services, "photos"));
@@ -222,13 +138,16 @@ query_media_server (GomAccountMinerJob *job,
       return;
     }
 
-  server = goa_object_get_media_server (object);
-  udn = goa_media_server_get_udn (server);
+  media_server = goa_object_get_media_server (object);
+  udn = goa_media_server_get_udn (media_server);
+  dlna_server = gom_dlna_servers_manager_get_server (priv->mngr, udn);
+  if (dlna_server == NULL)
+    return; /* Server is offline. */
 
-  photos_list = get_photos (self, udn);
+  photos_list = gom_dlna_server_get_photos (dlna_server);
   for (l = photos_list; l != NULL; l = l->next)
     {
-      PhotoItem *photo = (PhotoItem *) l->data;
+      GomDlnaPhotoItem *photo = (GomDlnaPhotoItem *) l->data;
 
       account_miner_job_process_photo (job, photo, &local_error);
       if (local_error != NULL)
@@ -238,8 +157,8 @@ query_media_server (GomAccountMinerJob *job,
         }
     }
 
-  g_list_free_full (photos_list, (GDestroyNotify) photo_item_free);
-  g_object_unref (server);
+  g_list_free_full (photos_list, (GDestroyNotify) gom_dlna_photo_item_free);
+  g_object_unref (media_server);
 }
 
 static GHashTable *

@@ -1,6 +1,6 @@
 /*
  * GNOME Online Miners - crawls through your online content
- * Copyright (c) 2014 Pranav Kant
+ * Copyright (c) 2014, 2015 Pranav Kant
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,7 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301, USA.
  *
- * Author: Pranav Kant <pranav913@gmail.com>
+ * Author: Pranav Kant <pranavk@gnome.org>
  *
  */
 
@@ -26,6 +26,7 @@
 #include "gom-dleyna-server-media-device.h"
 #include "gom-upnp-media-container2.h"
 #include "gom-dlna-server.h"
+#include "gom-utils.h"
 
 struct _GomDlnaServerPrivate
 {
@@ -53,6 +54,32 @@ G_DEFINE_TYPE_WITH_CODE (GomDlnaServer, gom_dlna_server, G_TYPE_OBJECT,
                          G_IMPLEMENT_INTERFACE (G_TYPE_INITABLE,
                                                 gom_dlna_server_initable_iface_init));
 
+
+static GomDlnaPhotoItem *
+photo_item_new (GVariant *var)
+{
+  GVariant *tmp;
+  GomDlnaPhotoItem *photo;
+  const gchar *str;
+
+  photo = g_slice_new0 (GomDlnaPhotoItem);
+
+  g_variant_lookup (var, "DisplayName", "&s", &str);
+  photo->name = gom_filename_strip_extension (str);
+
+  g_variant_lookup (var, "MIMEType", "&s", &str);
+  photo->mimetype = g_strdup (str);
+
+  g_variant_lookup (var, "Path", "&o", &str);
+  photo->path = g_strdup (str);
+
+  g_variant_lookup (var, "URLs", "@as", &tmp);
+  g_variant_get_child (tmp, 0, "&s", &str);
+  photo->url = g_strdup (str);
+  g_variant_unref (tmp);
+
+  return photo;
+}
 
 static void
 gom_dlna_server_dispose (GObject *object)
@@ -197,6 +224,15 @@ gom_dlna_server_class_init (GomDlnaServerClass *class)
 
 }
 
+void
+gom_dlna_photo_item_free (GomDlnaPhotoItem *photo)
+{
+  g_free (photo->name);
+  g_free (photo->mimetype);
+  g_free (photo->path);
+  g_free (photo->url);
+  g_slice_free (GomDlnaPhotoItem, photo);
+}
 
 GomDlnaServer *
 gom_dlna_server_new_for_bus (GBusType bus_type,
@@ -302,6 +338,42 @@ gom_dlna_server_search_objects (GomDlnaServer *self, GError **error)
   return out;
 }
 
+GList *
+gom_dlna_server_get_photos (GomDlnaServer *server)
+{
+  GError *error = NULL;
+  GList *photos_list = NULL;
+  GVariant *out, *var;
+  GVariantIter *iter = NULL;
+  GomDlnaPhotoItem *photo;
+
+  if (gom_dlna_server_get_searchable (server))
+    {
+      out = gom_dlna_server_search_objects (server, &error);
+      if (error != NULL)
+        {
+          g_warning ("Unable to search objects on server : %s",
+                     error->message);
+          g_error_free (error);
+          return NULL;
+        }
+
+      g_variant_get (out, "aa{sv}", &iter);
+      while (g_variant_iter_loop (iter, "@a{sv}", &var))
+        {
+          photo = photo_item_new (var);
+          photos_list = g_list_prepend (photos_list, photo);
+        }
+
+      g_variant_iter_free (iter);
+    }
+  else
+    {
+      /* TODO: Implement an algo here for !searchable devices. */
+    }
+
+  return photos_list;
+}
 
 const gchar *
 gom_dlna_server_get_udn (GomDlnaServer *self)
