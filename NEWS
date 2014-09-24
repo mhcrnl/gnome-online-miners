@@ -1,3 +1,11 @@
+Overview of changes in 3.14.0
+=============================
+
+* Bugs fixed:
+ 728912 data: add a DBus service file for org.gnome.OnlineMiners.MediaServer
+ 736407 media-server: Use a hyphen instead of underscore in provider type
+
+
 Overview of changes in 3.13.91
 ==============================
 
