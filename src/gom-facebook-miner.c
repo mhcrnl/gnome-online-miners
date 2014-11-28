@@ -56,8 +56,6 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   photo_link = gfbgraph_node_get_link (GFBGRAPH_NODE (photo));
   photo_created_time = gfbgraph_node_get_created_time (GFBGRAPH_NODE (photo));
   photo_name = gfbgraph_photo_get_name (photo);
-  if (photo_name == NULL)
-    photo_name = photo_created_time;
 
   identifier = g_strdup_printf ("facebook:%s", photo_id);
 
@@ -416,7 +414,7 @@ gom_facebook_miner_class_init (GomFacebookMinerClass *klass)
 
   miner_class->goa_provider_type = "facebook";
   miner_class->miner_identifier = MINER_IDENTIFIER;
-  miner_class->version = 1;
+  miner_class->version = 2;
 
   miner_class->create_services = create_services;
   miner_class->query = query_facebook;
