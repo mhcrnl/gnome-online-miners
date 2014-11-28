@@ -200,7 +200,6 @@ account_miner_job_process_album (GomAccountMinerJob *job,
   album_created_time = gfbgraph_node_get_created_time (GFBGRAPH_NODE (album));
   album_name = gfbgraph_album_get_name (album);
   album_description = gfbgraph_album_get_description (album);
-  g_message ("%s", album_created_time);
 
   identifier = g_strdup_printf ("photos:collection:facebook:%s", album_id);
 
