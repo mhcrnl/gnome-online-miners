@@ -28,6 +28,7 @@
 #include "gom-dlna-server.h"
 #include "gom-dlna-servers-manager.h"
 #include "gom-media-server-miner.h"
+#include "gom-utils.h"
 
 #define MINER_IDENTIFIER "gd:media-server:miner:a4a47a3e-eb55-11e3-b983-14feb59cfa0e"
 
@@ -54,7 +55,7 @@ photo_item_new (GVariant *var)
   photo = g_slice_new0 (PhotoItem);
 
   g_variant_lookup (var, "DisplayName", "&s", &str);
-  photo->name = g_strdup (str);
+  photo->name = gom_filename_strip_extension (str);
 
   g_variant_lookup (var, "MIMEType", "&s", &str);
   photo->mimetype = g_strdup (str);

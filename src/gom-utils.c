@@ -51,6 +51,24 @@ gom_filename_get_extension_offset (const char *filename)
 	return end;
 }
 
+gchar *
+gom_filename_strip_extension (const gchar *filename_with_extension)
+{
+  gchar *end;
+  gchar *filename;
+
+  if (filename_with_extension == NULL)
+    return NULL;
+
+  filename = g_strdup (filename_with_extension);
+  end = (gchar *) gom_filename_get_extension_offset (filename);
+
+  if (end != NULL && end != filename)
+    *end = '\0';
+
+  return filename;
+}
+
 const gchar *
 gom_filename_to_rdf_type (const gchar *filename_with_extension)
 {

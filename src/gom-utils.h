@@ -30,6 +30,8 @@ G_BEGIN_DECLS
 
 const gchar *gom_filename_to_rdf_type (const gchar *filename_with_extension);
 
+gchar *gom_filename_strip_extension (const gchar *filename_with_extension);
+
 gchar *gom_iso8601_from_timestamp (gint64 timestamp);
 
 G_END_DECLS
