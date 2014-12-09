@@ -1,6 +1,6 @@
 /*
  * GNOME Online Miners - crawls through your online content
- * Copyright (c) 2011, 2012, 2013 Red Hat, Inc.
+ * Copyright (c) 2011, 2012, 2013, 2014 Red Hat, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -33,6 +33,21 @@
 #define PARENT_LINK_REL "http://schemas.google.com/docs/2007#parent"
 
 G_DEFINE_TYPE (GomGDataMiner, gom_gdata_miner, GOM_TYPE_MINER)
+
+static gchar *
+generate_fake_email_from_fullname (const gchar *fullname)
+{
+  GChecksum *checksum;
+  const gchar *digest;
+  gchar *retval;
+
+  checksum = g_checksum_new (G_CHECKSUM_MD5);
+  g_checksum_update (checksum, fullname, -1);
+  digest = g_checksum_get_string (checksum);
+  retval = g_strdup (digest);
+  g_checksum_free (checksum);
+  return retval;
+}
 
 static gboolean
 account_miner_job_process_entry (GomAccountMinerJob *job,
@@ -331,6 +346,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   const gchar *summary;
   const gchar *mime;
 
+  gchar *email;
   gchar *exposure;
   gchar *focal_length;
   gchar *fstop;
@@ -433,10 +449,12 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
     goto out;
 
   credit = gdata_picasaweb_file_get_credit (photo);
+  email = generate_fake_email_from_fullname (credit);
   contact_resource = gom_tracker_utils_ensure_contact_resource
     (job->connection,
      job->cancellable, error,
-     job->datasource_urn, credit);
+     email, credit);
+  g_free (email);
 
   if (*error != NULL)
     goto out;
@@ -602,16 +620,18 @@ account_miner_job_process_album (GomAccountMinerJob *job,
   GDataFeed *feed = NULL;
   GDataPicasaWebQuery *query;
   gchar *resource = NULL;
-  gchar *date, *identifier;
+  gchar *contact_resource, *date, *identifier;
+  gchar *email;
   gboolean resource_exists, mtime_changed;
   gint64 new_mtime;
   gint64 timestamp;
 
   const gchar *album_id;
+  const gchar *nickname;
   const gchar *title;
   const gchar *summary;
 
-  GList *l, *authors, *photos = NULL;
+  GList *l, *photos = NULL;
 
   GDataLink *alternate;
   const gchar *alternate_uri;
@@ -690,31 +710,26 @@ account_miner_job_process_album (GomAccountMinerJob *job,
   if (*error != NULL)
     goto out;
 
-  authors = gdata_entry_get_authors (GDATA_ENTRY (album));
-  for (l = authors; l != NULL; l = l->next)
-    {
-      GDataAuthor *author = GDATA_AUTHOR (l->data);
-      gchar *contact_resource;
+  nickname = gdata_picasaweb_album_get_nickname (album);
+  email = generate_fake_email_from_fullname (nickname);
+  contact_resource = gom_tracker_utils_ensure_contact_resource
+    (job->connection,
+     job->cancellable, error,
+     email, nickname);
+  g_free (email);
 
-      contact_resource = gom_tracker_utils_ensure_contact_resource (job->connection,
-                                                                    job->cancellable, error,
-                                                                    gdata_author_get_email_address (author),
-                                                                    gdata_author_get_name (author));
+  if (*error != NULL)
+    goto out;
 
-      if (*error != NULL)
-        goto out;
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nco:creator", contact_resource);
+  g_free (contact_resource);
 
-      gom_tracker_sparql_connection_insert_or_replace_triple
-        (job->connection,
-         job->cancellable, error,
-         job->datasource_urn, resource,
-         "nco:creator", contact_resource);
-
-      if (*error != NULL)
-        goto out;
-
-      g_free (contact_resource);
-    }
+  if (*error != NULL)
+    goto out;
 
   timestamp = gdata_picasaweb_album_get_timestamp (album);
   date = gom_iso8601_from_timestamp (timestamp / 1000);
