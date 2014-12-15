@@ -1,3 +1,11 @@
+Overview of changes in 3.14.1
+=============================
+
+* Bugs fixed:
+ 740423 Wrong author shown for Google albums
+ 740869 facebook: Don't use the time as a fallback for the title
+
+
 Overview of changes in 3.14.0
 =============================
 
