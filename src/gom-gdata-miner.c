@@ -1,6 +1,6 @@
 /*
  * GNOME Online Miners - crawls through your online content
- * Copyright (c) 2011, 2012, 2013, 2014 Red Hat, Inc.
+ * Copyright (c) 2011, 2012, 2013, 2014, 2015 Red Hat, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -327,9 +327,9 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
                                  const gchar *parent_resource_urn,
                                  GError **error)
 {
-  GList *media_content;
+  GList *l, *media_contents;
   gchar *resource = NULL, *equipment_resource = NULL;
-  gchar *contact_resource, *date, *identifier;
+  gchar *contact_resource, *date, *identifier = NULL;
   gboolean resource_exists, mtime_changed;
   gint64 new_mtime;
   gint64 timestamp;
@@ -358,6 +358,21 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   const gchar *alternate_uri;
 
   id = gdata_entry_get_id (GDATA_ENTRY (photo));
+
+  media_contents = gdata_picasaweb_file_get_contents (photo);
+  for (l = media_contents; l != NULL; l = l->next)
+    {
+      GDataMediaContent *media_content = GDATA_MEDIA_CONTENT (l->data);
+      GDataMediaMedium medium;
+
+      medium = gdata_media_content_get_medium (media_content);
+      if (medium != GDATA_MEDIA_IMAGE)
+        {
+          g_debug ("Skipping %s because medium(%d) is not an image", id, medium);
+          goto out;
+        }
+    }
+
   identifier = g_strdup_printf ("google:picasaweb:%s", id);
 
   /* remove from the list of the previous resources */
@@ -427,8 +442,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   if (*error != NULL)
     goto out;
 
-  media_content = gdata_picasaweb_file_get_contents (photo);
-  mime = gdata_media_content_get_content_type (GDATA_MEDIA_CONTENT (media_content->data));
+  mime = gdata_media_content_get_content_type (GDATA_MEDIA_CONTENT (media_contents->data));
   gom_tracker_sparql_connection_insert_or_replace_triple
     (job->connection,
      job->cancellable, error,
