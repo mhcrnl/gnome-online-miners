@@ -46,12 +46,12 @@ libgom_1_0_la_LDFLAGS = \
     $(NULL)
 
 libexec_PROGRAMS = \
+    $(NULL)
+
+if BUILD_FACEBOOK
+
+libexec_PROGRAMS += \
     gom-facebook-miner \
-    gom-flickr-miner \
-    gom-gdata-miner \
-    gom-media-server-miner \
-    gom-owncloud-miner \
-    gom-zpj-miner \
     $(NULL)
 
 gom_facebook_miner_SOURCES = \
@@ -80,6 +80,14 @@ gom_facebook_miner_LDADD = \
     $(TRACKER_LIBS) \
     $(NULL)
 
+endif # BUILD_FACEBOOK
+
+if BUILD_FLICKR
+
+libexec_PROGRAMS += \
+    gom-flickr-miner \
+    $(NULL)
+
 gom_flickr_miner_SOURCES = \
     gom-flickr-miner-main.c \
     gom-flickr-miner.c \
@@ -106,6 +114,14 @@ gom_flickr_miner_LDADD = \
     $(TRACKER_LIBS) \
     $(NULL)
 
+endif # BUILD_FLICKR
+
+if BUILD_GOOGLE
+
+libexec_PROGRAMS += \
+    gom-gdata-miner \
+    $(NULL)
+
 gom_gdata_miner_SOURCES = \
     gom-gdata-miner-main.c \
     gom-gdata-miner.c \
@@ -130,6 +146,14 @@ gom_gdata_miner_LDADD = \
     $(GLIB_LIBS) \
     $(GOA_LIBS) \
     $(TRACKER_LIBS) \
+    $(NULL)
+
+endif # BUILD_GOOGLE
+
+if BUILD_MEDIA_SERVER
+
+libexec_PROGRAMS += \
+    gom-media-server-miner \
     $(NULL)
 
 gom_media_server_miner_built_sources = \
@@ -173,6 +197,14 @@ gom_media_server_miner_LDADD = \
     $(TRACKER_LIBS) \
     $(NULL)
 
+endif # BUILD_MEDIA_SERVER
+
+if BUILD_OWNCLOUD
+
+libexec_PROGRAMS += \
+    gom-owncloud-miner \
+    $(NULL)
+
 gom_owncloud_miner_SOURCES = \
     gom-owncloud-miner-main.c \
     gom-owncloud-miner.c \
@@ -195,6 +227,14 @@ gom_owncloud_miner_LDADD = \
     $(GLIB_LIBS) \
     $(GOA_LIBS) \
     $(TRACKER_LIBS) \
+    $(NULL)
+
+endif # BUILD_OWNCLOUD
+
+if BUILD_WINDOWS_LIVE
+
+libexec_PROGRAMS += \
+    gom-zpj-miner \
     $(NULL)
 
 gom_zpj_miner_SOURCES = \
@@ -222,6 +262,8 @@ gom_zpj_miner_LDADD = \
     $(TRACKER_LIBS) \
     $(ZAPOJIT_LIBS) \
     $(NULL)
+
+endif # BUILD_WINDOWS_LIVE
 
 BUILT_SOURCES = \
     $(libgom_1_0_la_built_sources) \
