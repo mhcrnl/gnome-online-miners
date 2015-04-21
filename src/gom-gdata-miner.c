@@ -30,6 +30,7 @@
 
 #define MINER_IDENTIFIER "gd:gdata:miner:86ec9bc9-c242-427f-aa19-77b5a2c9b6f0"
 #define PARENT_LINK_REL "http://schemas.google.com/docs/2007#parent"
+#define PREFIX_DRIVE "google:drive:"
 
 G_DEFINE_TYPE (GomGDataMiner, gom_gdata_miner, GOM_TYPE_MINER)
 
@@ -80,10 +81,15 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
       GDataLink *link;
 
       link = gdata_entry_look_up_link (entry, GDATA_LINK_SELF);
-      identifier = g_strdup_printf ("gd:collection:%s", gdata_link_get_uri (link));
+      identifier = g_strdup_printf ("gd:collection:%s%s", PREFIX_DRIVE, gdata_link_get_uri (link));
     }
   else
-    identifier = g_strdup (gdata_entry_get_id (entry));
+    {
+      const gchar *id;
+
+      id = gdata_entry_get_id (entry);
+      identifier = g_strdup_printf ("%s%s", PREFIX_DRIVE, id);
+    }
 
   /* remove from the list of the previous resources */
   g_hash_table_remove (job->previous_resources, identifier);
@@ -167,7 +173,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
 
       parent = l->data;
       parent_resource_id =
-        g_strdup_printf ("gd:collection:%s", gdata_link_get_uri (parent));
+        g_strdup_printf ("gd:collection:%s%s", PREFIX_DRIVE, gdata_link_get_uri (parent));
 
       parent_resource_urn = gom_tracker_sparql_connection_ensure_resource
         (job->connection, job->cancellable, error,
@@ -923,7 +929,7 @@ gom_gdata_miner_class_init (GomGDataMinerClass *klass)
 
   miner_class->goa_provider_type = "google";
   miner_class->miner_identifier = MINER_IDENTIFIER;
-  miner_class->version = 4;
+  miner_class->version = 5;
 
   miner_class->create_services = create_services;
   miner_class->query = query_gdata;
