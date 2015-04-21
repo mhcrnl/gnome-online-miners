@@ -29,7 +29,6 @@
 #include "gom-gdata-miner.h"
 
 #define MINER_IDENTIFIER "gd:gdata:miner:86ec9bc9-c242-427f-aa19-77b5a2c9b6f0"
-#define STARRED_CATEGORY_TERM "http://schemas.google.com/g/2005/labels#starred"
 #define PARENT_LINK_REL "http://schemas.google.com/docs/2007#parent"
 
 G_DEFINE_TYPE (GomGDataMiner, gom_gdata_miner, GOM_TYPE_MINER)
@@ -195,7 +194,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   for (l = categories; l != NULL; l = l->next)
     {
       category = l->data;
-      if (g_strcmp0 (gdata_category_get_term (category), STARRED_CATEGORY_TERM) == 0)
+      if (g_strcmp0 (gdata_category_get_term (category), GDATA_CATEGORY_SCHEMA_LABELS_STARRED) == 0)
         {
           starred = TRUE;
           break;
