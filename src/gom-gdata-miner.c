@@ -30,6 +30,8 @@
 
 #define MINER_IDENTIFIER "gd:gdata:miner:86ec9bc9-c242-427f-aa19-77b5a2c9b6f0"
 #define PARENT_LINK_REL "http://schemas.google.com/docs/2007#parent"
+
+/* used by applications to identify the source of an entry */
 #define PREFIX_DRIVE "google:drive:"
 #define PREFIX_PICASAWEB "google:picasaweb:"
 
