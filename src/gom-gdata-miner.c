@@ -31,6 +31,7 @@
 #define MINER_IDENTIFIER "gd:gdata:miner:86ec9bc9-c242-427f-aa19-77b5a2c9b6f0"
 #define PARENT_LINK_REL "http://schemas.google.com/docs/2007#parent"
 #define PREFIX_DRIVE "google:drive:"
+#define PREFIX_PICASAWEB "google:picasaweb:"
 
 G_DEFINE_TYPE (GomGDataMiner, gom_gdata_miner, GOM_TYPE_MINER)
 
@@ -378,7 +379,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
         }
     }
 
-  identifier = g_strdup_printf ("google:picasaweb:%s", id);
+  identifier = g_strdup_printf ("%s%s", PREFIX_PICASAWEB, id);
 
   /* remove from the list of the previous resources */
   g_hash_table_remove (job->previous_resources, identifier);
@@ -656,7 +657,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
   const gchar *alternate_uri;
 
   album_id = gdata_entry_get_id (GDATA_ENTRY (album));
-  identifier = g_strdup_printf ("photos:collection:google:picasaweb:%s", album_id);
+  identifier = g_strdup_printf ("photos:collection:%s%s", PREFIX_PICASAWEB, album_id);
 
   /* remove from the list of the previous resources */
   g_hash_table_remove (job->previous_resources, identifier);
