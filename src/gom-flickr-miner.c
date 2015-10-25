@@ -88,7 +88,7 @@ get_grl_options (GrlSource *source)
 
   g_return_val_if_fail (opts != NULL, NULL);
 
-  grl_operation_options_set_flags (opts, GRL_RESOLVE_FAST_ONLY);
+  grl_operation_options_set_resolution_flags (opts, GRL_RESOLVE_FAST_ONLY);
 
   return opts;
 }

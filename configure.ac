@@ -23,7 +23,7 @@ GDATA_MIN_VERSION=0.15.2
 GFBGRAPH_MIN_VERSION=0.2.2
 GLIB_MIN_VERSION=2.35.1
 GOA_MIN_VERSION=3.13.3
-GRILO_MIN_VERSION=0.2.6
+GRILO_MIN_VERSION=0.3.0
 ZAPOJIT_MIN_VERSION=0.0.2
 
 GNOME_COMPILE_WARNINGS([maximum])
@@ -50,7 +50,7 @@ AM_CONDITIONAL(BUILD_FACEBOOK, [test x$enable_facebook != xno])
 # Flickr
 AC_ARG_ENABLE([flickr], [AS_HELP_STRING([--enable-flickr], [Enable Flickr miner])], [], [enable_flickr=yes])
 if test "$enable_flickr" != "no"; then
-  PKG_CHECK_MODULES(GRILO, [grilo-0.2 >= $GRILO_MIN_VERSION])
+  PKG_CHECK_MODULES(GRILO, [grilo-0.3 >= $GRILO_MIN_VERSION])
 fi
 AM_CONDITIONAL(BUILD_FLICKR, [test x$enable_flickr != xno])
 
