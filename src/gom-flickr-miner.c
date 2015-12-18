@@ -109,19 +109,19 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   gboolean resource_exists, mtime_changed;
   gint64 new_mtime;
 
-  if (op_type == OP_CREATE_HIEARCHY && entry->parent == NULL && !GRL_IS_MEDIA_BOX (entry->media))
+  if (op_type == OP_CREATE_HIEARCHY && entry->parent == NULL && !grl_media_is_container (entry->media))
     return TRUE;
 
   id = grl_media_get_id (entry->media);
   identifier = g_strdup_printf ("%sflickr:%s",
-                                GRL_IS_MEDIA_BOX (entry->media) ?
+                                grl_media_is_container (entry->media) ?
                                 "photos:collection:" : "",
                                 id);
 
   /* remove from the list of the previous resources */
   g_hash_table_remove (job->previous_resources, identifier);
 
-  if (GRL_IS_MEDIA_BOX (entry->media))
+  if (grl_media_is_container (entry->media))
     class = "nfo:DataContainer";
   else
     class = "nmm:Photo";
@@ -307,7 +307,7 @@ source_browse_cb (GrlSource *source,
           g_error_free (local_error);
         }
 
-      if (GRL_IS_MEDIA_BOX (media))
+      if (grl_media_is_container (media))
         g_queue_push_tail (self->priv->boxes, entry);
       else
         free_entry (entry);
@@ -551,8 +551,9 @@ gom_flickr_miner_class_init (GomFlickrMinerClass *klass)
 
   grl_init (NULL, NULL);
   registry = grl_registry_get_default ();
+  grl_registry_load_all_plugins (registry, FALSE, &error);
 
-  if (!grl_registry_load_plugin_by_id (registry, "grl-flickr", &error))
+  if (error || !grl_registry_activate_plugin_by_id (registry, "grl-flickr", &error))
     {
       g_error ("%s", error->message);
       g_error_free (error);
