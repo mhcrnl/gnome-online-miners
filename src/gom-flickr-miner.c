@@ -553,7 +553,7 @@ gom_flickr_miner_class_init (GomFlickrMinerClass *klass)
   registry = grl_registry_get_default ();
   grl_registry_load_all_plugins (registry, FALSE, &error);
 
-  if (error || !grl_registry_activate_plugin_by_id (registry, "grl-flickr", &error))
+  if (error != NULL || !grl_registry_activate_plugin_by_id (registry, "grl-flickr", &error))
     {
       g_error ("%s", error->message);
       g_error_free (error);
