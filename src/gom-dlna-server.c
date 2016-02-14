@@ -73,12 +73,109 @@ photo_item_new (GVariant *var)
   g_variant_lookup (var, "Path", "&o", &str);
   photo->path = g_strdup (str);
 
+  g_variant_lookup (var, "Type", "s", &str);
+  photo->type = g_strdup (str);
+
+  if (g_str_equal (photo->type, "container"))
+    {
+      photo->url = NULL;
+      goto out;
+    }
+
   g_variant_lookup (var, "URLs", "@as", &tmp);
   g_variant_get_child (tmp, 0, "&s", &str);
   photo->url = g_strdup (str);
   g_variant_unref (tmp);
 
+ out:
   return photo;
+}
+
+static GList *
+process_children (GVariant *children, GList **photos_list)
+{
+  GVariantIter *iter = NULL;
+  GVariant *var = NULL;
+  GList *containers = NULL;
+  GomDlnaPhotoItem *photo;
+
+  g_variant_get (children, "aa{sv}", &iter);
+  while (g_variant_iter_loop (iter, "@a{sv}", &var))
+    {
+      photo = photo_item_new (var);
+      if (g_str_equal (photo->type, "image.photo"))
+        {
+          *photos_list = g_list_prepend (*photos_list, photo);
+        }
+      else if (g_str_equal (photo->type, "container"))
+        {
+          containers = g_list_prepend (containers, g_strdup (photo->path));
+          gom_dlna_photo_item_free (photo);
+        }
+    }
+
+  return containers;
+}
+
+static void
+find_photos (const gchar   *obj_path,
+             GList        **photos_list)
+{
+  GError *error = NULL;
+  GList *containers = NULL;
+  GList *l;
+  GVariant *children = NULL;
+  UpnpMediaContainer2 *proxy = NULL;
+  const gchar *const filter[] = {"DisplayName","Type","Path", "URLs", "MIMEType", NULL};
+
+  proxy = upnp_media_container2_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
+                                                        G_DBUS_PROXY_FLAGS_NONE,
+                                                        "com.intel.dleyna-server",
+                                                        obj_path,
+                                                        NULL, /* GCancellable */
+                                                        &error);
+
+  if (error != NULL)
+    {
+      g_warning ("Unable to get proxy for Upnp.MediaContainer2 : %s",
+                 error->message);
+      g_error_free (error);
+      goto out;
+    }
+
+  upnp_media_container2_call_list_children_sync (proxy,
+                                                 0,
+                                                 0,
+                                                 filter,
+                                                 &children,
+                                                 NULL, /* GCancellable */
+                                                 &error);
+
+  if (error != NULL)
+    {
+      g_warning ("Unable to call ListChildren : %s",
+                 error->message);
+      g_error_free (error);
+      goto out;
+    }
+
+  if (children == NULL)
+    goto out;
+
+  containers = process_children (children, photos_list);
+  if (containers == NULL)
+    goto out;
+
+  for (l = containers; l != NULL; l = l->next)
+    {
+      const gchar *obj_path = (gchar *) l->data;
+      find_photos (obj_path, photos_list);
+    }
+
+ out:
+  g_list_free_full (containers, g_free);
+  g_clear_pointer (&children, (GDestroyNotify) g_variant_unref);
+  g_clear_object (&proxy);
 }
 
 static void
@@ -231,6 +328,7 @@ gom_dlna_photo_item_free (GomDlnaPhotoItem *photo)
   g_free (photo->mimetype);
   g_free (photo->path);
   g_free (photo->url);
+  g_free (photo->type);
   g_slice_free (GomDlnaPhotoItem, photo);
 }
 
@@ -369,7 +467,10 @@ gom_dlna_server_get_photos (GomDlnaServer *server)
     }
   else
     {
-      /* TODO: Implement an algo here for !searchable devices. */
+      const gchar *obj_path;
+
+      obj_path = gom_dlna_server_get_object_path (server);
+      find_photos (obj_path, &photos_list);
     }
 
   return photos_list;

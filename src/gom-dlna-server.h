@@ -58,6 +58,7 @@ struct _GomDlnaPhotoItem
   gchar *mimetype;
   gchar *path;
   gchar *url;
+  gchar *type;
 };
 
 void                  gom_dlna_photo_item_free                  (GomDlnaPhotoItem *photo);
