@@ -1,5 +1,13 @@
-Overview of changes in 3.17.1
-=============================
+Overview of changes in 3.19.90
+==============================
+
+* Add build options to enable/disable each miner (747847)
+
+* Bugs fixed:
+ 728912 media-server: Support non-searchable DLNA servers
+ 740421 gdata: Skip PicasaWeb videos
+ 741162 media-server: Store photo names without extensions
+ 748253 gdata: Treat the GDataEntry:id as an opaque string
 
 
 Overview of changes in 3.14.1
