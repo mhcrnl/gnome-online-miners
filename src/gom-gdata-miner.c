@@ -35,6 +35,8 @@
 #define PREFIX_DRIVE "google:drive:"
 #define PREFIX_PICASAWEB "google:picasaweb:"
 
+static const guint MAX_RESULTS = 50;
+
 G_DEFINE_TYPE (GomGDataMiner, gom_gdata_miner, GOM_TYPE_MINER)
 
 static gchar *
@@ -811,33 +813,55 @@ query_gdata_documents (GomAccountMinerJob *job,
 {
   GDataDocumentsQuery *query = NULL;
   GDataDocumentsFeed *feed = NULL;
-  GError *local_error;
   GList *entries, *l;
+  gboolean succeeded_once = FALSE;
 
-  query = gdata_documents_query_new (NULL);
+  query = gdata_documents_query_new_with_limits (NULL, 1, MAX_RESULTS);
   gdata_documents_query_set_show_folders (query, TRUE);
 
-  local_error = NULL;
-  feed = gdata_documents_service_query_documents
-    (service, query,
-     job->cancellable, NULL, NULL, &local_error);
-  if (local_error != NULL)
+  while (TRUE)
     {
-      g_propagate_error (error, local_error);
-      goto out;
-    }
+      GError *local_error;
 
-  entries = gdata_feed_get_entries (GDATA_FEED (feed));
-  for (l = entries; l != NULL; l = l->next)
-    {
       local_error = NULL;
-      account_miner_job_process_entry (job, service, l->data, &local_error);
-
+      feed = gdata_documents_service_query_documents
+        (service, query,
+         job->cancellable, NULL, NULL, &local_error);
       if (local_error != NULL)
         {
-          g_warning ("Unable to process entry %p: %s", l->data, local_error->message);
-          g_error_free (local_error);
+          if (succeeded_once)
+            {
+              g_warning ("Unable to query: %s", local_error->message);
+              g_error_free (local_error);
+            }
+          else
+            {
+              g_propagate_error (error, local_error);
+            }
+
+          break;
         }
+
+      succeeded_once = TRUE;
+
+      entries = gdata_feed_get_entries (GDATA_FEED (feed));
+      if (entries == NULL)
+        break;
+
+      for (l = entries; l != NULL; l = l->next)
+        {
+          local_error = NULL;
+          account_miner_job_process_entry (job, service, l->data, &local_error);
+
+          if (local_error != NULL)
+            {
+              g_warning ("Unable to process entry %p: %s", l->data, local_error->message);
+              g_error_free (local_error);
+            }
+        }
+
+      gdata_query_next_page (GDATA_QUERY (query));
+      g_clear_object (&feed);
     }
 
  out:
