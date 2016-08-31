@@ -811,26 +811,32 @@ query_gdata_documents (GomAccountMinerJob *job,
 {
   GDataDocumentsQuery *query = NULL;
   GDataDocumentsFeed *feed = NULL;
+  GError *local_error;
   GList *entries, *l;
 
   query = gdata_documents_query_new (NULL);
   gdata_documents_query_set_show_folders (query, TRUE);
+
+  local_error = NULL;
   feed = gdata_documents_service_query_documents
     (service, query,
-     job->cancellable, NULL, NULL, error);
-
-  if (feed == NULL)
-    goto out;
+     job->cancellable, NULL, NULL, &local_error);
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, local_error);
+      goto out;
+    }
 
   entries = gdata_feed_get_entries (GDATA_FEED (feed));
   for (l = entries; l != NULL; l = l->next)
     {
-      account_miner_job_process_entry (job, service, l->data, error);
+      local_error = NULL;
+      account_miner_job_process_entry (job, service, l->data, &local_error);
 
-      if (*error != NULL)
+      if (local_error != NULL)
         {
-          g_warning ("Unable to process entry %p: %s", l->data, (*error)->message);
-          g_clear_error (error);
+          g_warning ("Unable to process entry %p: %s", l->data, local_error->message);
+          g_error_free (local_error);
         }
     }
 
