@@ -552,30 +552,11 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 
   if (make != NULL || model != NULL)
     {
-      equipment_resource = gom_tracker_sparql_connection_ensure_resource
-        (job->connection,
-         job->cancellable, error,
-         &resource_exists,
-         job->datasource_urn, resource,
-         "nfo:Equipment", NULL);
-
-      if (*error != NULL)
-        goto out;
-
-      gom_tracker_sparql_connection_insert_or_replace_triple
-        (job->connection,
-         job->cancellable, error,
-         job->datasource_urn, equipment_resource,
-         "nfo:manufacturer", make);
-
-      if (*error != NULL)
-        goto out;
-
-      gom_tracker_sparql_connection_insert_or_replace_triple
-        (job->connection,
-         job->cancellable, error,
-         job->datasource_urn, equipment_resource,
-         "nfo:model", model);
+      equipment_resource = gom_tracker_utils_ensure_equipment_resource (job->connection,
+                                                                        job->cancellable,
+                                                                        error,
+                                                                        make,
+                                                                        model);
 
       if (*error != NULL)
         goto out;

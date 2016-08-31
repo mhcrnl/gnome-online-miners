@@ -66,6 +66,12 @@ gchar* gom_tracker_utils_ensure_contact_resource (TrackerSparqlConnection *conne
                                                   const gchar *email,
                                                   const gchar *fullname);
 
+gchar *gom_tracker_utils_ensure_equipment_resource (TrackerSparqlConnection *connection,
+                                                    GCancellable *cancellable,
+                                                    GError **error,
+                                                    const gchar *make,
+                                                    const gchar *model);
+
 void gom_tracker_update_datasource (TrackerSparqlConnection  *connection,
                                     const gchar              *datasource_urn,
                                     gboolean                  resource_exists,

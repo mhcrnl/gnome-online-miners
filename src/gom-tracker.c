@@ -393,6 +393,89 @@ gom_tracker_utils_ensure_contact_resource (TrackerSparqlConnection *connection,
   return retval;
 }
 
+gchar *
+gom_tracker_utils_ensure_equipment_resource (TrackerSparqlConnection *connection,
+                                             GCancellable *cancellable,
+                                             GError **error,
+                                             const gchar *make,
+                                             const gchar *model)
+{
+  GError *local_error;
+  TrackerSparqlCursor *cursor = NULL;
+  gboolean res;
+  gchar *equip_uri = NULL;
+  gchar *insert = NULL;
+  gchar *retval = NULL;
+  gchar *select = NULL;
+
+  g_return_val_if_fail (TRACKER_SPARQL_IS_CONNECTION (connection), NULL);
+  g_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), NULL);
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
+  g_return_val_if_fail (make != NULL || model != NULL, NULL);
+
+  equip_uri = tracker_sparql_escape_uri_printf ("urn:equipment:%s:%s:",
+                                                make != NULL ? make : "",
+                                                model != NULL ? model : "");
+  select = g_strdup_printf ("SELECT <%s> WHERE { }", equip_uri);
+
+  local_error = NULL;
+  cursor = tracker_sparql_connection_query (connection, select, cancellable, &local_error);
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, local_error);
+      goto out;
+    }
+
+  local_error = NULL;
+  res = tracker_sparql_cursor_next (cursor, cancellable, &local_error);
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, local_error);
+      goto out;
+    }
+
+  if (res)
+    {
+      const gchar *cursor_uri;
+
+      cursor_uri = tracker_sparql_cursor_get_string (cursor, 0, NULL);
+      if (g_strcmp0 (cursor_uri, equip_uri) == 0)
+        {
+          /* return the found resource */
+          retval = g_strdup (cursor_uri);
+          g_debug ("Found resource in the store: %s", retval);
+          goto out;
+        }
+    }
+
+  /* not found, create the resource */
+  insert = g_strdup_printf ("INSERT { <%s> a nfo:Equipment ; nfo:manufacturer \"%s\" ; nfo:model \"%s\" }",
+                            equip_uri,
+                            make,
+                            model);
+
+  local_error = NULL;
+  tracker_sparql_connection_update (connection, insert, G_PRIORITY_DEFAULT, cancellable, &local_error);
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, local_error);
+      goto out;
+    }
+
+  retval = equip_uri;
+  equip_uri = NULL;
+
+  g_debug ("Created a new equipment resource: %s", retval);
+
+ out:
+  g_clear_object (&cursor);
+  g_free (equip_uri);
+  g_free (insert);
+  g_free (select);
+
+  return retval;
+}
+
 void
 gom_tracker_update_datasource (TrackerSparqlConnection  *connection,
                                const gchar              *datasource_urn,
