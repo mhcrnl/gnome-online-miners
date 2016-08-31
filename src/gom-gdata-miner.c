@@ -809,8 +809,8 @@ query_gdata_documents (GomAccountMinerJob *job,
                        GDataDocumentsService *service,
                        GError **error)
 {
-  GDataDocumentsQuery *query;
-  GDataDocumentsFeed *feed;
+  GDataDocumentsQuery *query = NULL;
+  GDataDocumentsFeed *feed = NULL;
   GList *entries, *l;
 
   query = gdata_documents_query_new (NULL);
@@ -819,10 +819,8 @@ query_gdata_documents (GomAccountMinerJob *job,
     (service, query,
      job->cancellable, NULL, NULL, error);
 
-  g_object_unref (query);
-
   if (feed == NULL)
-    return;
+    goto out;
 
   entries = gdata_feed_get_entries (GDATA_FEED (feed));
   for (l = entries; l != NULL; l = l->next)
@@ -836,7 +834,9 @@ query_gdata_documents (GomAccountMinerJob *job,
         }
     }
 
-  g_object_unref (feed);
+ out:
+  g_clear_object (&feed);
+  g_clear_object (&query);
 }
 
 static void
