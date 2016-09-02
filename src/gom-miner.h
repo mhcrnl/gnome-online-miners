@@ -66,6 +66,7 @@ typedef struct {
   GoaAccount *account;
   GHashTable *services;
   GTask *task;
+  GTask *parent_task;
   GCancellable *cancellable;
 
   GHashTable *previous_resources;

@@ -38,7 +38,6 @@ struct _GomMinerPrivate {
   GError *connection_error;
 
   GCancellable *cancellable;
-  GTask *task;
 
   GList *pending_jobs;
 
@@ -62,6 +61,7 @@ gom_account_miner_job_free (GomAccountMinerJob *job)
   g_clear_object (&job->account);
   g_clear_object (&job->connection);
   g_clear_object (&job->task);
+  g_clear_object (&job->parent_task);
 
   g_free (job->datasource_urn);
   g_free (job->root_element_urn);
@@ -86,7 +86,6 @@ gom_miner_dispose (GObject *object)
   g_clear_object (&self->priv->client);
   g_clear_object (&self->priv->connection);
   g_clear_object (&self->priv->cancellable);
-  g_clear_object (&self->priv->task);
 
   g_free (self->priv->display_name);
   g_strfreev (self->priv->index_types);
@@ -176,10 +175,10 @@ gom_miner_class_init (GomMinerClass *klass)
 }
 
 static void
-gom_miner_check_pending_jobs (GomMiner *self)
+gom_miner_check_pending_jobs (GomMiner *self, GTask *task)
 {
   if (g_list_length (self->priv->pending_jobs) == 0)
-    g_task_return_boolean (self->priv->task, TRUE);
+    g_task_return_boolean (task, TRUE);
 }
 
 static void
@@ -361,7 +360,8 @@ miner_cancellable_cancelled_cb (GCancellable *cancellable,
 
 static GomAccountMinerJob *
 gom_account_miner_job_new (GomMiner *self,
-                           GoaObject *object)
+                           GoaObject *object,
+                           GTask *parent_task)
 {
   GomAccountMinerJob *retval;
   GoaAccount *account;
@@ -372,6 +372,7 @@ gom_account_miner_job_new (GomMiner *self,
 
   retval = g_slice_new0 (GomAccountMinerJob);
   retval->miner = g_object_ref (self);
+  retval->parent_task = g_object_ref (parent_task);
   retval->cancellable = g_cancellable_new ();
   retval->account = account;
   retval->connection = g_object_ref (self->priv->connection);
@@ -415,18 +416,19 @@ miner_job_process_ready_cb (GObject *source,
 
   self->priv->pending_jobs = g_list_remove (self->priv->pending_jobs,
                                             job);
-  gom_account_miner_job_free (job);
 
-  gom_miner_check_pending_jobs (self);
+  gom_miner_check_pending_jobs (self, job->parent_task);
+  gom_account_miner_job_free (job);
 }
 
 static void
 gom_miner_setup_account (GomMiner *self,
-                         GoaObject *object)
+                         GoaObject *object,
+                         GTask *task)
 {
   GomAccountMinerJob *job;
 
-  job = gom_account_miner_job_new (self, object);
+  job = gom_account_miner_job_new (self, object, task);
   self->priv->pending_jobs = g_list_prepend (self->priv->pending_jobs, job);
 
   gom_account_miner_job_process_async (job, miner_job_process_ready_cb, job);
@@ -455,7 +457,7 @@ cleanup_old_accounts_done (gpointer data)
   for (l = job->content_objects; l != NULL; l = l->next)
     {
       object = l->data;
-      gom_miner_setup_account (self, object);
+      gom_miner_setup_account (self, object, task);
 
       g_object_unref (object);
     }
@@ -478,7 +480,7 @@ cleanup_old_accounts_done (gpointer data)
       job->old_datasources = NULL;
     }
 
-  gom_miner_check_pending_jobs (self);
+  gom_miner_check_pending_jobs (self, task);
 
   g_clear_object (&job->self);
   g_slice_free (CleanupJob, job);
@@ -642,7 +644,8 @@ cleanup_job (gpointer data,
 static void
 gom_miner_cleanup_old_accounts (GomMiner *self,
                                 GList *content_objects,
-                                GList *acc_objects)
+                                GList *acc_objects,
+                                GTask *task)
 {
   CleanupJob *job = g_slice_new0 (CleanupJob);
 
@@ -650,12 +653,12 @@ gom_miner_cleanup_old_accounts (GomMiner *self,
   job->content_objects = content_objects;
   job->acc_objects = acc_objects;
 
-  g_task_set_task_data (self->priv->task, job, NULL);
-  g_thread_pool_push (cleanup_pool, g_object_ref (self->priv->task), NULL);
+  g_task_set_task_data (task, job, NULL);
+  g_thread_pool_push (cleanup_pool, g_object_ref (task), NULL);
 }
 
 static void
-gom_miner_refresh_db_real (GomMiner *self)
+gom_miner_refresh_db_real (GomMiner *self, GTask *task)
 {
   GoaDocuments *documents;
   GoaPhotos *photos;
@@ -702,7 +705,7 @@ gom_miner_refresh_db_real (GomMiner *self)
 
   g_list_free_full (accounts, g_object_unref);
 
-  gom_miner_cleanup_old_accounts (self, content_objects, acc_objects);
+  gom_miner_cleanup_old_accounts (self, content_objects, acc_objects, task);
 }
 
 const gchar *
@@ -717,25 +720,30 @@ gom_miner_refresh_db_async (GomMiner *self,
                             GAsyncReadyCallback callback,
                             gpointer user_data)
 {
-  self->priv->task = g_task_new (self, cancellable, callback, user_data);
-  g_task_set_source_tag (self->priv->task, gom_miner_refresh_db_async);
+  GTask *task = NULL;
+
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, gom_miner_refresh_db_async);
 
   if (self->priv->client_error != NULL)
     {
-      g_task_return_error (self->priv->task, g_error_copy (self->priv->client_error));
-      return;
+      g_task_return_error (task, g_error_copy (self->priv->client_error));
+      goto out;
     }
 
   if (self->priv->connection_error != NULL)
     {
-      g_task_return_error (self->priv->task, g_error_copy (self->priv->connection_error));
-      return;
+      g_task_return_error (task, g_error_copy (self->priv->connection_error));
+      goto out;
     }
 
   self->priv->cancellable =
     (cancellable != NULL) ? g_object_ref (cancellable) : NULL;
 
-  gom_miner_refresh_db_real (self);
+  gom_miner_refresh_db_real (self, task);
+
+ out:
+  g_clear_object (&task);
 }
 
 gboolean
