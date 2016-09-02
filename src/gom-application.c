@@ -56,6 +56,52 @@ G_DEFINE_TYPE (GomApplication, gom_application, G_TYPE_APPLICATION);
 static void gom_application_refresh_db_cb (GObject *source, GAsyncResult *res, gpointer user_data);
 
 static void
+gom_application_insert_shared_content_cb (GObject *source,
+                                          GAsyncResult *res,
+                                          gpointer user_data)
+{
+  GomApplication *self;
+  GDBusMethodInvocation *invocation = G_DBUS_METHOD_INVOCATION (user_data);
+  GError *error;
+
+  self = GOM_APPLICATION (g_application_get_default ());
+  g_application_release (G_APPLICATION (self));
+
+  error = NULL;
+  if (!gom_miner_insert_shared_content_finish (GOM_MINER (source), res, &error))
+    {
+      g_printerr ("Failed to insert shared content: %s\n", error->message);
+      g_dbus_method_invocation_take_error (invocation, error);
+      goto out;
+    }
+
+  gom_dbus_complete_insert_shared_content (self->skeleton, invocation);
+
+ out:
+  g_object_unref (invocation);
+}
+
+static gboolean
+gom_application_insert_shared_content (GomApplication *self,
+                                       GDBusMethodInvocation *invocation,
+                                       const gchar *account_id,
+                                       const gchar *shared_id,
+                                       const gchar *shared_type,
+                                       const gchar *source_urn)
+{
+  g_application_hold (G_APPLICATION (self));
+  gom_miner_insert_shared_content_async (self->miner,
+                                         account_id,
+                                         shared_id,
+                                         shared_type,
+                                         source_urn,
+                                         self->cancellable,
+                                         gom_application_insert_shared_content_cb,
+                                         g_object_ref (invocation));
+  return TRUE;
+}
+
+static void
 gom_application_process_queue (GomApplication *self)
 {
   GDBusMethodInvocation *invocation = NULL;
@@ -235,6 +281,10 @@ gom_application_init (GomApplication *self)
   self->cancellable = g_cancellable_new ();
 
   self->skeleton = gom_dbus_skeleton_new ();
+  g_signal_connect_swapped (self->skeleton,
+                            "handle-insert-shared-content",
+                            G_CALLBACK (gom_application_insert_shared_content),
+                            self);
   g_signal_connect_swapped (self->skeleton, "handle-refresh-db", G_CALLBACK (gom_application_refresh_db), self);
 
   self->queue = g_queue_new ();
