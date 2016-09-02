@@ -35,6 +35,7 @@ struct _GomMinerPrivate {
   GError *client_error;
 
   TrackerSparqlConnection *connection;
+  GError *connection_error;
 
   GCancellable *cancellable;
   GSimpleAsyncResult *result;
@@ -85,6 +86,7 @@ gom_miner_dispose (GObject *object)
   g_free (self->priv->display_name);
   g_strfreev (self->priv->index_types);
   g_clear_error (&self->priv->client_error);
+  g_clear_error (&self->priv->connection_error);
 
   G_OBJECT_CLASS (gom_miner_parent_class)->dispose (object);
 }
@@ -141,8 +143,18 @@ gom_miner_constructed (GObject *obj)
 static void
 gom_miner_init (GomMiner *self)
 {
+  GomMinerClass *klass = GOM_MINER_GET_CLASS (self);
+
   self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self, GOM_TYPE_MINER, GomMinerPrivate);
   self->priv->display_name = g_strdup ("");
+
+  self->priv->connection = tracker_sparql_connection_get (NULL, &self->priv->connection_error);
+  if (self->priv->connection_error != NULL)
+    {
+      g_critical ("Unable to create TrackerSparqlConnection: %s - indexing for %s will not work",
+                  self->priv->connection_error->message,
+                  klass->goa_provider_type);
+    }
 }
 
 static void
@@ -690,25 +702,6 @@ gom_miner_refresh_db_real (GomMiner *self)
   gom_miner_cleanup_old_accounts (self, content_objects, acc_objects);
 }
 
-static void
-sparql_connection_ready_cb (GObject *object,
-                            GAsyncResult *res,
-                            gpointer user_data)
-{
-  GError *error = NULL;
-  GomMiner *self = user_data;
-
-  self->priv->connection = tracker_sparql_connection_get_finish (res, &error);
-
-  if (error != NULL)
-    {
-      gom_miner_complete_error (self, error);
-      return;
-    }
-
-  gom_miner_refresh_db_real (self);
-}
-
 const gchar *
 gom_miner_get_display_name (GomMiner *self)
 {
@@ -727,6 +720,12 @@ gom_miner_refresh_db_async (GomMiner *self,
       return;
     }
 
+  if (self->priv->connection_error != NULL)
+    {
+      gom_miner_complete_error (self, self->priv->connection_error);
+      return;
+    }
+
   self->priv->result =
     g_simple_async_result_new (G_OBJECT (self),
                                callback, user_data,
@@ -734,8 +733,7 @@ gom_miner_refresh_db_async (GomMiner *self,
   self->priv->cancellable =
     (cancellable != NULL) ? g_object_ref (cancellable) : NULL;
 
-  tracker_sparql_connection_get_async (self->priv->cancellable,
-                                       sparql_connection_ready_cb, self);
+  gom_miner_refresh_db_real (self);
 }
 
 gboolean
