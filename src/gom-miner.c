@@ -46,6 +46,10 @@ struct _GomMinerPrivate {
   gchar **index_types;
 };
 
+static GThreadPool *cleanup_pool;
+
+static void cleanup_job (gpointer data, gpointer user_data);
+
 static void
 gom_account_miner_job_free (GomAccountMinerJob *job)
 {
@@ -165,6 +169,8 @@ gom_miner_class_init (GomMinerClass *klass)
 
   oclass->constructed = gom_miner_constructed;
   oclass->dispose = gom_miner_dispose;
+
+  cleanup_pool = g_thread_pool_new (cleanup_job, NULL, 1, FALSE, NULL);
 
   g_type_class_add_private (klass, sizeof (GomMinerPrivate));
 }
@@ -444,10 +450,14 @@ typedef struct {
 static gboolean
 cleanup_old_accounts_done (gpointer data)
 {
-  CleanupJob *job = data;
+  GTask *task = G_TASK (data);
+  CleanupJob *job;
   GList *l;
   GoaObject *object;
-  GomMiner *self = job->self;
+  GomMiner *self;
+
+  job = (CleanupJob *) g_task_get_task_data (task);
+  self = job->self;
 
   /* now setup all the current accounts */
   for (l = job->content_objects; l != NULL; l = l->next)
@@ -549,20 +559,25 @@ cleanup_datasource_compare (gconstpointer a,
   return res;
 }
 
-static gboolean
-cleanup_job (GIOSchedulerJob *sched_job,
-             GCancellable *cancellable,
+static void
+cleanup_job (gpointer data,
              gpointer user_data)
 {
+  GSource *source;
   GString *select;
+  GTask *task = G_TASK (data);
   GError *error = NULL;
   TrackerSparqlCursor *cursor;
   const gchar *datasource, *old_version_str;
   gint old_version;
   GList *element;
-  CleanupJob *job = user_data;
-  GomMiner *self = job->self;
-  GomMinerClass *klass = GOM_MINER_GET_CLASS (self);
+  CleanupJob *job;
+  GomMiner *self;
+  GomMinerClass *klass;
+
+  job = (CleanupJob *) g_task_get_task_data (task);
+  self = job->self;
+  klass = GOM_MINER_GET_CLASS (self);
 
   /* find all our datasources in the tracker DB */
   select = g_string_new (NULL);
@@ -624,9 +639,12 @@ cleanup_job (GIOSchedulerJob *sched_job,
   cleanup_job_do_cleanup (job);
 
  out:
-  g_io_scheduler_job_send_to_mainloop_async (sched_job,
-                                             cleanup_old_accounts_done, job, NULL);
-  return FALSE;
+  source = g_idle_source_new ();
+  g_source_set_name (source, "[gnome-online-miners] cleanup_old_accounts_done");
+  g_task_attach_source (task, source, cleanup_old_accounts_done);
+  g_source_unref (source);
+
+  g_object_unref (task);
 }
 
 static void
@@ -640,9 +658,8 @@ gom_miner_cleanup_old_accounts (GomMiner *self,
   job->content_objects = content_objects;
   job->acc_objects = acc_objects;
 
-  g_io_scheduler_push_job (cleanup_job, job, NULL,
-                           G_PRIORITY_DEFAULT,
-                           self->priv->cancellable);
+  g_task_set_task_data (self->priv->task, job, NULL);
+  g_thread_pool_push (cleanup_pool, g_object_ref (self->priv->task), NULL);
 }
 
 static void
