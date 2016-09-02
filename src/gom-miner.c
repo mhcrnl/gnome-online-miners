@@ -37,11 +37,17 @@ struct _GomMinerPrivate {
   TrackerSparqlConnection *connection;
   GError *connection_error;
 
-  GList *pending_jobs;
-
   gchar *display_name;
   gchar **index_types;
 };
+
+typedef struct {
+  GomMiner *self;
+  GList *content_objects;
+  GList *acc_objects;
+  GList *old_datasources;
+  GList *pending_jobs;
+} CleanupJob;
 
 static GThreadPool *cleanup_pool;
 
@@ -69,13 +75,6 @@ static void
 gom_miner_dispose (GObject *object)
 {
   GomMiner *self = GOM_MINER (object);
-
-  if (self->priv->pending_jobs != NULL)
-    {
-      g_list_free_full (self->priv->pending_jobs,
-                        (GDestroyNotify) gom_account_miner_job_free);
-      self->priv->pending_jobs = NULL;
-    }
 
   g_clear_object (&self->priv->client);
   g_clear_object (&self->priv->connection);
@@ -168,10 +167,17 @@ gom_miner_class_init (GomMinerClass *klass)
 }
 
 static void
-gom_miner_check_pending_jobs (GomMiner *self, GTask *task)
+gom_miner_check_pending_jobs (GTask *task)
 {
-  if (g_list_length (self->priv->pending_jobs) == 0)
-    g_task_return_boolean (task, TRUE);
+  CleanupJob *cleanup_job;
+
+  cleanup_job = (CleanupJob *) g_task_get_task_data (task);
+
+  if (g_list_length (cleanup_job->pending_jobs) > 0)
+    return;
+
+  g_task_return_boolean (task, TRUE);
+  g_slice_free (CleanupJob, cleanup_job);
 }
 
 static void
@@ -391,9 +397,12 @@ miner_job_process_ready_cb (GObject *source,
                             GAsyncResult *res,
                             gpointer user_data)
 {
+  CleanupJob *cleanup_job;
   GomAccountMinerJob *account_miner_job = user_data;
   GomMiner *self = account_miner_job->miner;
   GError *error = NULL;
+
+  cleanup_job = (CleanupJob *) g_task_get_task_data (account_miner_job->parent_task);
 
   gom_account_miner_job_process_finish (res, &error);
 
@@ -405,10 +414,10 @@ miner_job_process_ready_cb (GObject *source,
       g_error_free (error);
     }
 
-  self->priv->pending_jobs = g_list_remove (self->priv_job->pending_jobs,
-                                            account_miner_job);
+  cleanup_job->pending_jobs = g_list_remove (cleanup_job->pending_jobs,
+                                             account_miner_job);
 
-  gom_miner_check_pending_jobs (self, account_miner_job->parent_task);
+  gom_miner_check_pending_jobs (account_miner_job->parent_task);
   gom_account_miner_job_free (account_miner_job);
 }
 
@@ -417,20 +426,16 @@ gom_miner_setup_account (GomMiner *self,
                          GoaObject *object,
                          GTask *task)
 {
+  CleanupJob *cleanup_job;
   GomAccountMinerJob *account_miner_job;
 
+  cleanup_job = (CleanupJob *) g_task_get_task_data (task);
+
   account_miner_job = gom_account_miner_job_new (self, object, task);
-  self->priv->pending_jobs = g_list_prepend (self->priv->pending_jobs, account_miner_job);
+  cleanup_job->pending_jobs = g_list_prepend (cleanup_job->pending_jobs, account_miner_job);
 
   gom_account_miner_job_process_async (account_miner_job, miner_job_process_ready_cb, account_miner_job);
 }
-
-typedef struct {
-  GomMiner *self;
-  GList *content_objects;
-  GList *acc_objects;
-  GList *old_datasources;
-} CleanupJob;
 
 static gboolean
 cleanup_old_accounts_done (gpointer data)
@@ -471,10 +476,9 @@ cleanup_old_accounts_done (gpointer data)
       job->old_datasources = NULL;
     }
 
-  gom_miner_check_pending_jobs (self, task);
+  gom_miner_check_pending_jobs (task);
 
   g_clear_object (&job->self);
-  g_slice_free (CleanupJob, job);
 
   return FALSE;
 }
