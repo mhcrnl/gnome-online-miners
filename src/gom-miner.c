@@ -176,14 +176,6 @@ gom_miner_class_init (GomMinerClass *klass)
 }
 
 static void
-gom_miner_complete_error (GomMiner *self,
-                          GError *error)
-{
-  g_assert (self->priv->task != NULL);
-  g_task_return_error (self->priv->task, g_error_copy (error));
-}
-
-static void
 gom_miner_check_pending_jobs (GomMiner *self)
 {
   if (g_list_length (self->priv->pending_jobs) == 0)
@@ -730,13 +722,13 @@ gom_miner_refresh_db_async (GomMiner *self,
 
   if (self->priv->client_error != NULL)
     {
-      gom_miner_complete_error (self, self->priv->client_error);
+      g_task_return_error (self->priv->task, g_error_copy (self->priv->client_error));
       return;
     }
 
   if (self->priv->connection_error != NULL)
     {
-      gom_miner_complete_error (self, self->priv->connection_error);
+      g_task_return_error (self->priv->task, g_error_copy (self->priv->connection_error));
       return;
     }
 
