@@ -41,6 +41,7 @@ G_DEFINE_TYPE_WITH_PRIVATE (GomMediaServerMiner, gom_media_server_miner, GOM_TYP
 static gboolean
 account_miner_job_process_photo (GomAccountMinerJob *job,
                                  GomDlnaPhotoItem *photo,
+                                 GCancellable *cancellable,
                                  GError **error)
 {
   const gchar *photo_id;
@@ -59,7 +60,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 
   resource = gom_tracker_sparql_connection_ensure_resource
     (job->connection,
-     job->cancellable, error,
+     cancellable, error,
      &resource_exists,
      job->datasource_urn, identifier,
      "nfo:RemoteDataObject", class, NULL);
@@ -69,14 +70,14 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 
   gom_tracker_update_datasource (job->connection, job->datasource_urn,
                                  resource_exists, identifier, resource,
-                                 job->cancellable, error);
+                                 cancellable, error);
   if (*error != NULL)
     goto out;
 
   /* the resource changed - just set all the properties again */
   gom_tracker_sparql_connection_insert_or_replace_triple
     (job->connection,
-     job->cancellable, error,
+     cancellable, error,
      job->datasource_urn, resource,
      "nie:url", photo->url);
 
@@ -85,7 +86,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 
   gom_tracker_sparql_connection_insert_or_replace_triple
     (job->connection,
-     job->cancellable, error,
+     cancellable, error,
      job->datasource_urn, resource,
      "nie:mimeType", photo->mimetype);
 
@@ -94,7 +95,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 
   gom_tracker_sparql_connection_insert_or_replace_triple
     (job->connection,
-     job->cancellable, error,
+     cancellable, error,
      job->datasource_urn, resource,
      "nie:title", photo->name);
 
@@ -115,6 +116,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 
 static void
 query_media_server (GomAccountMinerJob *job,
+                    GCancellable *cancellable,
                     GError **error)
 {
   GomMediaServerMiner *self = GOM_MEDIA_SERVER_MINER (job->miner);
@@ -149,7 +151,7 @@ query_media_server (GomAccountMinerJob *job,
     {
       GomDlnaPhotoItem *photo = (GomDlnaPhotoItem *) l->data;
 
-      account_miner_job_process_photo (job, photo, &local_error);
+      account_miner_job_process_photo (job, photo, cancellable, &local_error);
       if (local_error != NULL)
         {
           g_warning ("Unable to process photo: %s", local_error->message);

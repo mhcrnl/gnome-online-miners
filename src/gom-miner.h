@@ -66,7 +66,6 @@ typedef struct {
   GHashTable *services;
   GTask *task;
   GTask *parent_task;
-  GCancellable *cancellable;
 
   GHashTable *previous_resources;
   gchar *datasource_urn;
@@ -92,6 +91,7 @@ struct _GomMinerClass
                                    GoaObject *object);
 
   void (*query) (GomAccountMinerJob *job,
+                 GCancellable *cancellable,
                  GError **error);
 };
 
