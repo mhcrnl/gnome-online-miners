@@ -57,7 +57,7 @@ gom_account_miner_job_free (GomAccountMinerJob *job)
   g_clear_object (&job->miner);
   g_clear_object (&job->account);
   g_clear_object (&job->connection);
-  g_clear_object (&job->async_result);
+  g_clear_object (&job->task);
 
   g_free (job->datasource_urn);
   g_free (job->root_element_urn);
@@ -288,12 +288,13 @@ gom_account_miner_job_query (GomAccountMinerJob *job,
   miner_class->query (job, error);
 }
 
-static gboolean
-gom_account_miner_job (GIOSchedulerJob *sched_job,
-                       GCancellable *cancellable,
-                       gpointer user_data)
+static void
+gom_account_miner_job (GTask *task,
+                       gpointer source_object,
+                       gpointer task_data,
+                       GCancellable *cancellable)
 {
-  GomAccountMinerJob *job = user_data;
+  GomAccountMinerJob *job = task_data;
   GError *error = NULL;
 
   gom_account_miner_job_ensure_datasource (job, &error);
@@ -318,11 +319,9 @@ gom_account_miner_job (GIOSchedulerJob *sched_job,
 
  out:
   if (error != NULL)
-    g_simple_async_result_take_error (job->async_result, error);
-
-  g_simple_async_result_complete_in_idle (job->async_result);
-
-  return FALSE;
+    g_task_return_error (job->task, error);
+  else
+    g_task_return_boolean (job->task, TRUE);
 }
 
 static void
@@ -330,30 +329,26 @@ gom_account_miner_job_process_async (GomAccountMinerJob *job,
                                      GAsyncReadyCallback callback,
                                      gpointer user_data)
 {
-  g_assert (job->async_result == NULL);
+  g_assert (job->task == NULL);
 
-  job->async_result = g_simple_async_result_new (NULL, callback, user_data,
-                                                 gom_account_miner_job_process_async);
-  g_simple_async_result_set_op_res_gpointer (job->async_result, job, NULL);
-
-  g_io_scheduler_push_job (gom_account_miner_job, job, NULL,
-                           G_PRIORITY_DEFAULT,
-                           job->cancellable);
+  job->task = g_task_new (NULL, job->cancellable, callback, user_data);
+  g_task_set_source_tag (job->task, gom_account_miner_job_process_async);
+  g_task_set_task_data (job->task, job, NULL);
+  g_task_run_in_thread (job->task, gom_account_miner_job);
 }
 
 static gboolean
 gom_account_miner_job_process_finish (GAsyncResult *res,
                                       GError **error)
 {
-  GSimpleAsyncResult *simple_res = G_SIMPLE_ASYNC_RESULT (res);
+  GTask *task;
 
-  g_assert (g_simple_async_result_is_valid (res, NULL,
-                                            gom_account_miner_job_process_async));
+  g_assert (g_task_is_valid (res, NULL));
+  task = G_TASK (res);
 
-  if (g_simple_async_result_propagate_error (simple_res, error))
-    return FALSE;
+  g_assert (g_task_get_source_tag (task) == gom_account_miner_job_process_async);
 
-  return TRUE;
+  return g_task_propagate_boolean (task, error);
 }
 
 static void
