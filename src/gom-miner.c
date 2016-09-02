@@ -56,6 +56,7 @@ gom_account_miner_job_free (GomAccountMinerJob *job)
   g_hash_table_unref (job->services);
   g_clear_object (&job->miner);
   g_clear_object (&job->account);
+  g_clear_object (&job->connection);
   g_clear_object (&job->async_result);
 
   g_free (job->datasource_urn);
@@ -382,7 +383,7 @@ gom_account_miner_job_new (GomMiner *self,
   retval->miner = g_object_ref (self);
   retval->cancellable = g_cancellable_new ();
   retval->account = account;
-  retval->connection = self->priv->connection;
+  retval->connection = g_object_ref (self->priv->connection);
   retval->previous_resources =
     g_hash_table_new_full (g_str_hash, g_str_equal,
                            (GDestroyNotify) g_free, (GDestroyNotify) g_free);
