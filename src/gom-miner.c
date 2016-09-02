@@ -725,6 +725,9 @@ gom_miner_refresh_db_async (GomMiner *self,
                             GAsyncReadyCallback callback,
                             gpointer user_data)
 {
+  self->priv->task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (self->priv->task, gom_miner_refresh_db_async);
+
   if (self->priv->client_error != NULL)
     {
       gom_miner_complete_error (self, self->priv->client_error);
@@ -736,9 +739,6 @@ gom_miner_refresh_db_async (GomMiner *self,
       gom_miner_complete_error (self, self->priv->connection_error);
       return;
     }
-
-  self->priv->task = g_task_new (self, cancellable, callback, user_data);
-  g_task_set_source_tag (self->priv->task, gom_miner_refresh_db_async);
 
   self->priv->cancellable =
     (cancellable != NULL) ? g_object_ref (cancellable) : NULL;
