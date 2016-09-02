@@ -37,8 +37,6 @@ struct _GomMinerPrivate {
   TrackerSparqlConnection *connection;
   GError *connection_error;
 
-  GCancellable *cancellable;
-
   GList *pending_jobs;
 
   gchar *display_name;
@@ -52,10 +50,6 @@ static void cleanup_job (gpointer data, gpointer user_data);
 static void
 gom_account_miner_job_free (GomAccountMinerJob *job)
 {
-  if (job->miner_cancellable_id != 0)
-    g_cancellable_disconnect (job->miner->priv->cancellable,
-                              job->miner_cancellable_id);
-
   g_hash_table_unref (job->services);
   g_clear_object (&job->miner);
   g_clear_object (&job->account);
@@ -85,7 +79,6 @@ gom_miner_dispose (GObject *object)
 
   g_clear_object (&self->priv->client);
   g_clear_object (&self->priv->connection);
-  g_clear_object (&self->priv->cancellable);
 
   g_free (self->priv->display_name);
   g_strfreev (self->priv->index_types);
@@ -348,21 +341,12 @@ gom_account_miner_job_process_finish (GAsyncResult *res,
   return g_task_propagate_boolean (task, error);
 }
 
-static void
-miner_cancellable_cancelled_cb (GCancellable *cancellable,
-                                gpointer user_data)
-{
-  GomAccountMinerJob *job = user_data;
-
-  /* forward the cancel signal to the ongoing job */
-  g_cancellable_cancel (job->cancellable);
-}
-
 static GomAccountMinerJob *
 gom_account_miner_job_new (GomMiner *self,
                            GoaObject *object,
                            GTask *parent_task)
 {
+  GCancellable *cancellable;
   GomAccountMinerJob *retval;
   GoaAccount *account;
   GomMinerClass *miner_class = GOM_MINER_GET_CLASS (self);
@@ -370,21 +354,17 @@ gom_account_miner_job_new (GomMiner *self,
   account = goa_object_get_account (object);
   g_assert (account != NULL);
 
+  cancellable = g_task_get_cancellable (parent_task);
+
   retval = g_slice_new0 (GomAccountMinerJob);
   retval->miner = g_object_ref (self);
   retval->parent_task = g_object_ref (parent_task);
-  retval->cancellable = g_cancellable_new ();
+  retval->cancellable = g_object_ref (cancellable);
   retval->account = account;
   retval->connection = g_object_ref (self->priv->connection);
   retval->previous_resources =
     g_hash_table_new_full (g_str_hash, g_str_equal,
                            (GDestroyNotify) g_free, (GDestroyNotify) g_free);
-
-  if (self->priv->cancellable != NULL)
-      retval->miner_cancellable_id =
-        g_cancellable_connect (self->priv->cancellable,
-                               G_CALLBACK (miner_cancellable_cancelled_cb),
-                               retval, NULL);
 
   retval->services = miner_class->create_services (self, object);
   retval->datasource_urn = g_strdup_printf ("gd:goa-account:%s",
@@ -489,7 +469,7 @@ cleanup_old_accounts_done (gpointer data)
 }
 
 static void
-cleanup_job_do_cleanup (CleanupJob *job)
+cleanup_job_do_cleanup (CleanupJob *job, GCancellable *cancellable)
 {
   GomMiner *self = job->self;
   GList *l;
@@ -520,7 +500,7 @@ cleanup_job_do_cleanup (CleanupJob *job)
   tracker_sparql_connection_update (self->priv->connection,
                                     update->str,
                                     G_PRIORITY_DEFAULT,
-                                    self->priv->cancellable,
+                                    cancellable,
                                     &error);
   g_string_free (update, TRUE);
 
@@ -557,6 +537,7 @@ static void
 cleanup_job (gpointer data,
              gpointer user_data)
 {
+  GCancellable *cancellable;
   GSource *source;
   GString *select;
   GTask *task = G_TASK (data);
@@ -569,6 +550,7 @@ cleanup_job (gpointer data,
   GomMiner *self;
   GomMinerClass *klass;
 
+  cancellable = g_task_get_cancellable (task);
   job = (CleanupJob *) g_task_get_task_data (task);
   self = job->self;
   klass = GOM_MINER_GET_CLASS (self);
@@ -583,7 +565,7 @@ cleanup_job (gpointer data,
 
   cursor = tracker_sparql_connection_query (self->priv->connection,
                                             select->str,
-                                            self->priv->cancellable,
+                                            cancellable,
                                             &error);
   g_string_free (select, TRUE);
 
@@ -593,7 +575,7 @@ cleanup_job (gpointer data,
       goto out;
     }
 
-  while (tracker_sparql_cursor_next (cursor, self->priv->cancellable, NULL))
+  while (tracker_sparql_cursor_next (cursor, cancellable, NULL))
     {
       /* If the source we found is not in the current list, add
        * it to the cleanup list.
@@ -630,7 +612,7 @@ cleanup_job (gpointer data,
   g_object_unref (cursor);
 
   /* cleanup the DB */
-  cleanup_job_do_cleanup (job);
+  cleanup_job_do_cleanup (job, cancellable);
 
  out:
   source = g_idle_source_new ();
@@ -736,9 +718,6 @@ gom_miner_refresh_db_async (GomMiner *self,
       g_task_return_error (task, g_error_copy (self->priv->connection_error));
       goto out;
     }
-
-  self->priv->cancellable =
-    (cancellable != NULL) ? g_object_ref (cancellable) : NULL;
 
   gom_miner_refresh_db_real (self, task);
 
