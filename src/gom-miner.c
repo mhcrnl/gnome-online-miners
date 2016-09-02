@@ -391,8 +391,8 @@ miner_job_process_ready_cb (GObject *source,
                             GAsyncResult *res,
                             gpointer user_data)
 {
-  GomAccountMinerJob *job = user_data;
-  GomMiner *self = job->miner;
+  GomAccountMinerJob *account_miner_job = user_data;
+  GomMiner *self = account_miner_job->miner;
   GError *error = NULL;
 
   gom_account_miner_job_process_finish (res, &error);
@@ -400,16 +400,16 @@ miner_job_process_ready_cb (GObject *source,
   if (error != NULL)
     {
       g_printerr ("Error while refreshing account %s: %s",
-                  goa_account_get_id (job->account), error->message);
+                  goa_account_get_id (account_miner_job->account), error->message);
 
       g_error_free (error);
     }
 
-  self->priv->pending_jobs = g_list_remove (self->priv->pending_jobs,
-                                            job);
+  self->priv->pending_jobs = g_list_remove (self->priv_job->pending_jobs,
+                                            account_miner_job);
 
-  gom_miner_check_pending_jobs (self, job->parent_task);
-  gom_account_miner_job_free (job);
+  gom_miner_check_pending_jobs (self, account_miner_job->parent_task);
+  gom_account_miner_job_free (account_miner_job);
 }
 
 static void
@@ -417,12 +417,12 @@ gom_miner_setup_account (GomMiner *self,
                          GoaObject *object,
                          GTask *task)
 {
-  GomAccountMinerJob *job;
+  GomAccountMinerJob *account_miner_job;
 
-  job = gom_account_miner_job_new (self, object, task);
-  self->priv->pending_jobs = g_list_prepend (self->priv->pending_jobs, job);
+  account_miner_job = gom_account_miner_job_new (self, object, task);
+  self->priv->pending_jobs = g_list_prepend (self->priv->pending_jobs, account_miner_job);
 
-  gom_account_miner_job_process_async (job, miner_job_process_ready_cb, job);
+  gom_account_miner_job_process_async (account_miner_job, miner_job_process_ready_cb, account_miner_job);
 }
 
 typedef struct {
