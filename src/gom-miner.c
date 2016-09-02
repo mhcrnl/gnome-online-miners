@@ -38,7 +38,7 @@ struct _GomMinerPrivate {
   GError *connection_error;
 
   GCancellable *cancellable;
-  GSimpleAsyncResult *result;
+  GTask *task;
 
   GList *pending_jobs;
 
@@ -82,7 +82,7 @@ gom_miner_dispose (GObject *object)
   g_clear_object (&self->priv->client);
   g_clear_object (&self->priv->connection);
   g_clear_object (&self->priv->cancellable);
-  g_clear_object (&self->priv->result);
+  g_clear_object (&self->priv->task);
 
   g_free (self->priv->display_name);
   g_strfreev (self->priv->index_types);
@@ -173,17 +173,15 @@ static void
 gom_miner_complete_error (GomMiner *self,
                           GError *error)
 {
-  g_assert (self->priv->result != NULL);
-
-  g_simple_async_result_take_error (self->priv->result, error);
-  g_simple_async_result_complete_in_idle (self->priv->result);
+  g_assert (self->priv->task != NULL);
+  g_task_return_error (self->priv->task, g_error_copy (error));
 }
 
 static void
 gom_miner_check_pending_jobs (GomMiner *self)
 {
   if (g_list_length (self->priv->pending_jobs) == 0)
-    g_simple_async_result_complete_in_idle (self->priv->result);
+    g_task_return_boolean (self->priv->task, TRUE);
 }
 
 static void
@@ -727,10 +725,9 @@ gom_miner_refresh_db_async (GomMiner *self,
       return;
     }
 
-  self->priv->result =
-    g_simple_async_result_new (G_OBJECT (self),
-                               callback, user_data,
-                               gom_miner_refresh_db_async);
+  self->priv->task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (self->priv->task, gom_miner_refresh_db_async);
+
   self->priv->cancellable =
     (cancellable != NULL) ? g_object_ref (cancellable) : NULL;
 
@@ -742,15 +739,14 @@ gom_miner_refresh_db_finish (GomMiner *self,
                              GAsyncResult *res,
                              GError **error)
 {
-  GSimpleAsyncResult *simple_res = G_SIMPLE_ASYNC_RESULT (res);
+  GTask *task;
 
-  g_assert (g_simple_async_result_is_valid (res, G_OBJECT (self),
-                                            gom_miner_refresh_db_async));
+  g_assert (g_task_is_valid (res, self));
+  task = G_TASK (res);
 
-  if (g_simple_async_result_propagate_error (simple_res, error))
-    return FALSE;
+  g_assert (g_task_get_source_tag (task) == gom_miner_refresh_db_async);
 
-  return TRUE;
+  return g_task_propagate_boolean (task, error);
 }
 
 void
