@@ -811,6 +811,110 @@ account_miner_job_process_album (TrackerSparqlConnection *connection,
 }
 
 static void
+insert_shared_content_photos (TrackerSparqlConnection *connection,
+                              const gchar *datasource_urn,
+                              const gchar *shared_id,
+                              const gchar *source_urn,
+                              GDataPicasaWebService *service,
+                              GCancellable *cancellable,
+                              GError **error)
+{
+  GError *local_error;
+  GDataAuthorizationDomain *authorization_domain;
+  GDataEntry *entry = NULL;
+  GDataPicasaWebFile *file;
+  GDataPicasaWebQuery *query = NULL;
+  gchar *photo_resource_urn = NULL;
+
+  authorization_domain = gdata_picasaweb_service_get_primary_authorization_domain ();
+
+  query = gdata_picasaweb_query_new (NULL);
+  gdata_picasaweb_query_set_image_size (query, "d");
+
+  local_error = NULL;
+  entry = gdata_service_query_single_entry (GDATA_SERVICE (service),
+                                            authorization_domain,
+                                            shared_id,
+                                            GDATA_QUERY (query),
+                                            GDATA_TYPE_PICASAWEB_FILE,
+                                            cancellable,
+                                            &local_error);
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, local_error);
+      goto out;
+    }
+
+  file = GDATA_PICASAWEB_FILE (entry);
+
+  local_error = NULL;
+  photo_resource_urn = account_miner_job_process_photo (connection,
+                                                        NULL,
+                                                        datasource_urn,
+                                                        file,
+                                                        NULL,
+                                                        cancellable,
+                                                        &local_error);
+  if (local_error != NULL)
+    {
+      g_propagate_error (error, local_error);
+      goto out;
+    }
+
+  local_error = NULL;
+  if (!gom_tracker_sparql_connection_insert_or_replace_triple (connection,
+                                                               cancellable,
+                                                               &local_error,
+                                                               datasource_urn,
+                                                               source_urn,
+                                                               "nie:relatedTo",
+                                                               photo_resource_urn))
+    {
+      g_propagate_error (error, local_error);
+      goto out;
+    }
+
+  local_error = NULL;
+  if (!gom_tracker_sparql_connection_insert_or_replace_triple (connection,
+                                                               cancellable,
+                                                               &local_error,
+                                                               datasource_urn,
+                                                               photo_resource_urn,
+                                                               "nie:links",
+                                                               source_urn))
+    {
+      g_propagate_error (error, local_error);
+      goto out;
+    }
+
+ out:
+  g_clear_object (&entry);
+  g_clear_object (&query);
+  g_free (photo_resource_urn);
+}
+
+static void
+insert_shared_content (GomMiner *miner,
+                       gpointer service,
+                       TrackerSparqlConnection *connection,
+                       const gchar *datasource_urn,
+                       const gchar *shared_id,
+                       const gchar *shared_type,
+                       const gchar *source_urn,
+                       GCancellable *cancellable,
+                       GError **error)
+{
+  if (g_strcmp0 (shared_type, "photos") == 0)
+    insert_shared_content_photos (connection,
+                                  datasource_urn,
+                                  shared_id,
+                                  source_urn,
+                                  GDATA_PICASAWEB_SERVICE (service),
+                                  cancellable,
+                                  error);
+}
+
+static void
 query_gdata_documents (GomAccountMinerJob *job,
                        TrackerSparqlConnection *connection,
                        GHashTable *previous_resources,
@@ -957,6 +1061,24 @@ query_gdata (GomAccountMinerJob *job,
                         error);
 }
 
+static gpointer
+create_service (GomMiner *miner, GoaObject *object, const gchar *type)
+{
+  GDataGoaAuthorizer *authorizer;
+  gpointer service = NULL;
+
+  authorizer = gdata_goa_authorizer_new (object);
+
+  if (g_strcmp0 (type, "documents") == 0)
+    service = gdata_documents_service_new (GDATA_AUTHORIZER (authorizer));
+
+  if (g_strcmp0 (type, "photos") == 0)
+    service = gdata_picasaweb_service_new (GDATA_AUTHORIZER (authorizer));
+
+  g_object_unref (authorizer);
+  return service;
+}
+
 static GHashTable *
 create_services (GomMiner *self,
                  GoaObject *object)
@@ -991,6 +1113,12 @@ create_services (GomMiner *self,
 }
 
 static void
+destroy_service (GomMiner *miner, gpointer service)
+{
+  g_object_unref (service);
+}
+
+static void
 gom_gdata_miner_init (GomGDataMiner *miner)
 {
 }
@@ -1004,6 +1132,9 @@ gom_gdata_miner_class_init (GomGDataMinerClass *klass)
   miner_class->miner_identifier = MINER_IDENTIFIER;
   miner_class->version = 5;
 
+  miner_class->create_service = create_service;
   miner_class->create_services = create_services;
+  miner_class->destroy_service = destroy_service;
+  miner_class->insert_shared_content = insert_shared_content;
   miner_class->query = query_gdata;
 }
