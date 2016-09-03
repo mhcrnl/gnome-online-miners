@@ -49,6 +49,15 @@ typedef struct {
   GList *pending_jobs;
 } CleanupJob;
 
+typedef struct {
+  GomMiner *self;
+  gchar *account_id;
+  gchar *shared_id;
+  gchar *shared_type;
+  gchar *source_urn;
+  gpointer service;
+} InsertSharedContentData;
+
 static GThreadPool *cleanup_pool;
 
 static void cleanup_job (gpointer data, gpointer user_data);
@@ -69,6 +78,41 @@ gom_account_miner_job_free (GomAccountMinerJob *job)
   g_hash_table_unref (job->previous_resources);
 
   g_slice_free (GomAccountMinerJob, job);
+}
+
+static void
+gom_insert_shared_content_data_free (InsertSharedContentData *data)
+{
+  GOM_MINER_GET_CLASS (data->self)->destroy_service (data->self, data->service);
+
+  g_object_unref (data->self);
+  g_free (data->account_id);
+  g_free (data->shared_id);
+  g_free (data->shared_type);
+  g_free (data->source_urn);
+
+  g_slice_free (InsertSharedContentData, data);
+}
+
+static InsertSharedContentData *
+gom_insert_shared_content_data_new (GomMiner *self,
+                                    const gchar *account_id,
+                                    const gchar *shared_id,
+                                    const gchar *shared_type,
+                                    const gchar *source_urn,
+                                    gpointer service)
+{
+  InsertSharedContentData *retval;
+
+  retval = g_slice_new0 (InsertSharedContentData);
+  retval->self = g_object_ref (self);
+  retval->account_id = g_strdup (account_id);
+  retval->shared_id = g_strdup (shared_id);
+  retval->shared_type = g_strdup (shared_type);
+  retval->source_urn = g_strdup (source_urn);
+  retval->service = service;
+
+  return retval;
 }
 
 static void
@@ -709,6 +753,136 @@ const gchar *
 gom_miner_get_display_name (GomMiner *self)
 {
   return self->priv->display_name;
+}
+
+static void
+gom_miner_insert_shared_content_in_thread_func (GTask *task,
+                                                gpointer source_object,
+                                                gpointer task_data,
+                                                GCancellable *cancellable)
+{
+  GomMiner *self = GOM_MINER (source_object);
+  GError *error;
+  InsertSharedContentData *data = (InsertSharedContentData *) task_data;
+  gchar *datasource_urn = NULL;
+  gchar *root_element_urn = NULL;
+
+  datasource_urn = g_strdup_printf ("gd:goa-account:%s", data->account_id);
+  root_element_urn = g_strdup_printf ("gd:goa-account:%s:root-element", data->account_id);
+
+  error = NULL;
+  gom_miner_ensure_datasource (self, datasource_urn, root_element_urn, cancellable, &error);
+  if (error != NULL)
+    {
+      g_task_return_error (task, error);
+      goto out;
+    }
+
+  error = NULL;
+  GOM_MINER_GET_CLASS (self)->insert_shared_content (self,
+                                                     data->service,
+                                                     self->priv->connection,
+                                                     datasource_urn,
+                                                     data->shared_id,
+                                                     data->shared_type,
+                                                     data->source_urn,
+                                                     cancellable,
+                                                     &error);
+  if (error != NULL)
+    {
+      g_task_return_error (task, error);
+      goto out;
+    }
+
+  g_task_return_boolean (task, TRUE);
+
+ out:
+  g_free (datasource_urn);
+  g_free (root_element_urn);
+}
+
+void
+gom_miner_insert_shared_content_async (GomMiner *self,
+                                       const gchar *account_id,
+                                       const gchar *shared_id,
+                                       const gchar *shared_type,
+                                       const gchar *source_urn,
+                                       GCancellable *cancellable,
+                                       GAsyncReadyCallback callback,
+                                       gpointer user_data)
+{
+  GTask *task = NULL;
+  GoaDocuments *documents;
+  GoaObject *object = NULL;
+  GoaPhotos *photos;
+  InsertSharedContentData *data;
+  gpointer service;
+
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, gom_miner_insert_shared_content_async);
+
+  if (self->priv->client_error != NULL)
+    {
+      g_task_return_error (task, g_error_copy (self->priv->client_error));
+      goto out;
+    }
+
+  if (self->priv->connection_error != NULL)
+    {
+      g_task_return_error (task, g_error_copy (self->priv->connection_error));
+      goto out;
+    }
+
+  object = goa_client_lookup_by_id (self->priv->client, account_id);
+  if (object == NULL)
+    {
+      /* throw error */
+      goto out;
+    }
+
+  documents = goa_object_peek_documents (object);
+  photos = goa_object_peek_photos (object);
+
+  if (g_strcmp0 (shared_type, "documents") == 0 && documents == NULL)
+    {
+      /* throw error */
+      goto out;
+    }
+
+  if (g_strcmp0 (shared_type, "photos") == 0 && photos == NULL)
+    {
+      /* throw error */
+      goto out;
+    }
+
+  service = GOM_MINER_GET_CLASS (self)->create_service (self, object, shared_type);
+  if (service == NULL)
+    {
+      /* throw error */
+      goto out;
+    }
+
+  data = gom_insert_shared_content_data_new (self, account_id, shared_id, shared_type, source_urn, service);
+  g_task_set_task_data (task, data, (GDestroyNotify) gom_insert_shared_content_data_free);
+
+  g_task_run_in_thread (task, gom_miner_insert_shared_content_in_thread_func);
+
+ out:
+  g_clear_object (&object);
+  g_clear_object (&task);
+}
+
+gboolean
+gom_miner_insert_shared_content_finish (GomMiner *self, GAsyncResult *res, GError **error)
+{
+  GTask *task;
+
+  g_assert (g_task_is_valid (res, self));
+  task = G_TASK (res);
+
+  g_assert (g_task_get_source_tag (task) == gom_miner_insert_shared_content_async);
+
+  return g_task_propagate_boolean (task, error);
 }
 
 void

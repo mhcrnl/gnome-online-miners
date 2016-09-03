@@ -87,8 +87,22 @@ struct _GomMinerClass
   char *miner_identifier;
   gint  version;
 
+  gpointer (*create_service) (GomMiner *self, GoaObject *object, const gchar *type);
+
   GHashTable * (*create_services) (GomMiner *self,
                                    GoaObject *object);
+
+  void (*destroy_service) (GomMiner *self, gpointer service);
+
+  void (*insert_shared_content) (GomMiner *self,
+                                 gpointer service,
+                                 TrackerSparqlConnection *connection,
+                                 const gchar *datasource_urn,
+                                 const gchar *shared_id,
+                                 const gchar *shared_type,
+                                 const gchar *source_urn,
+                                 GCancellable *cancellable,
+                                 GError **error);
 
   void (*query) (GomAccountMinerJob *job,
                  TrackerSparqlConnection *connection,
@@ -101,6 +115,17 @@ struct _GomMinerClass
 GType gom_miner_get_type (void);
 
 const gchar * gom_miner_get_display_name (GomMiner *self);
+
+void gom_miner_insert_shared_content_async (GomMiner *self,
+                                            const gchar *account_id,
+                                            const gchar *shared_id,
+                                            const gchar *shared_type,
+                                            const gchar *source_urn,
+                                            GCancellable *cancellable,
+                                            GAsyncReadyCallback callback,
+                                            gpointer user_data);
+
+gboolean gom_miner_insert_shared_content_finish (GomMiner *self, GAsyncResult *res, GError **error);
 
 void gom_miner_refresh_db_async (GomMiner *self,
                                  GCancellable *cancellable,
