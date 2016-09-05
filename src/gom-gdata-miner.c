@@ -100,8 +100,9 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
       identifier = g_strdup_printf ("%s%s", PREFIX_DRIVE, id);
     }
 
-  /* remove from the list of the previous resources */
-  g_hash_table_remove (previous_resources, identifier);
+  /* remove from the list of the previous resources, if any */
+  if (previous_resources != NULL)
+    g_hash_table_remove (previous_resources, identifier);
 
   if (GDATA_IS_DOCUMENTS_PRESENTATION (doc_entry))
     class = "nfo:Presentation";
@@ -393,8 +394,9 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 
   identifier = g_strdup_printf ("%s%s", PREFIX_PICASAWEB, id);
 
-  /* remove from the list of the previous resources */
-  g_hash_table_remove (previous_resources, identifier);
+  /* remove from the list of the previous resources, if any */
+  if (previous_resources != NULL)
+    g_hash_table_remove (previous_resources, identifier);
 
   resource = gom_tracker_sparql_connection_ensure_resource
     (connection,
@@ -656,8 +658,9 @@ account_miner_job_process_album (GomAccountMinerJob *job,
   album_id = gdata_entry_get_id (GDATA_ENTRY (album));
   identifier = g_strdup_printf ("photos:collection:%s%s", PREFIX_PICASAWEB, album_id);
 
-  /* remove from the list of the previous resources */
-  g_hash_table_remove (previous_resources, identifier);
+  /* remove from the list of the previous resources, if any */
+  if (previous_resources != NULL)
+    g_hash_table_remove (previous_resources, identifier);
 
   resource = gom_tracker_sparql_connection_ensure_resource
     (connection,
