@@ -181,14 +181,14 @@ gom_miner_check_pending_jobs (GTask *task)
 }
 
 static void
-gom_account_miner_job_ensure_datasource (GomAccountMinerJob *job,
-                                         GError **error)
+gom_miner_ensure_datasource (GomMiner *self,
+                             const gchar *datasource_urn,
+                             const gchar *root_element_urn,
+                             GCancellable *cancellable,
+                             GError **error)
 {
-  GCancellable *cancellable;
   GString *datasource_insert;
-  GomMinerClass *klass = GOM_MINER_GET_CLASS (job->miner);
-
-  cancellable = g_task_get_cancellable (job->task);
+  GomMinerClass *klass = GOM_MINER_GET_CLASS (self);
 
   datasource_insert = g_string_new (NULL);
   g_string_append_printf (datasource_insert,
@@ -196,11 +196,11 @@ gom_account_miner_job_ensure_datasource (GomAccountMinerJob *job,
                           "  <%s> a nie:DataSource ; nao:identifier \"%s\" . "
                           "  <%s> a nie:InformationElement ; nie:rootElementOf <%s> ; nie:version \"%d\""
                           "}",
-                          job->datasource_urn,
-                          job->datasource_urn, klass->miner_identifier,
-                          job->root_element_urn, job->datasource_urn, klass->version);
+                          datasource_urn,
+                          datasource_urn, klass->miner_identifier,
+                          root_element_urn, datasource_urn, klass->version);
 
-  tracker_sparql_connection_update (job->connection,
+  tracker_sparql_connection_update (self->priv->connection,
                                     datasource_insert->str,
                                     G_PRIORITY_DEFAULT,
                                     cancellable,
@@ -304,7 +304,7 @@ gom_account_miner_job (GTask *task,
   GomAccountMinerJob *job = task_data;
   GError *error = NULL;
 
-  gom_account_miner_job_ensure_datasource (job, &error);
+  gom_miner_ensure_datasource (job->miner, job->datasource_urn, job->root_element_urn, cancellable, &error);
 
   if (error != NULL)
     goto out;
