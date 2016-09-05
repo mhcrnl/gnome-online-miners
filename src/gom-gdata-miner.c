@@ -335,7 +335,7 @@ account_miner_job_process_entry (TrackerSparqlConnection *connection,
   return TRUE;
 }
 
-static gboolean
+static gchar *
 account_miner_job_process_photo (TrackerSparqlConnection *connection,
                                  GHashTable *previous_resources,
                                  const gchar *datasource_urn,
@@ -617,14 +617,13 @@ account_miner_job_process_photo (TrackerSparqlConnection *connection,
     goto out;
 
  out:
-  g_free (resource);
   g_free (identifier);
   g_free (equipment_resource);
 
   if (*error != NULL)
-    return FALSE;
+    return NULL;
 
-  return TRUE;
+  return resource;
 }
 
 static gboolean
@@ -778,14 +777,15 @@ account_miner_job_process_album (TrackerSparqlConnection *connection,
   for (l = photos; l != NULL; l = l->next)
     {
       GDataPicasaWebFile *file = GDATA_PICASAWEB_FILE (l->data);
+      gchar *photo_resource_urn = NULL;
 
-      account_miner_job_process_photo (connection,
-                                       previous_resources,
-                                       datasource_urn,
-                                       file,
-                                       resource,
-                                       cancellable,
-                                       error);
+      photo_resource_urn = account_miner_job_process_photo (connection,
+                                                            previous_resources,
+                                                            datasource_urn,
+                                                            file,
+                                                            resource,
+                                                            cancellable,
+                                                            error);
 
       if (*error != NULL)
         {
@@ -795,6 +795,8 @@ account_miner_job_process_album (TrackerSparqlConnection *connection,
           g_warning ("Unable to process photo %s: %s", photo_id, (*error)->message);
           g_clear_error (error);
         }
+
+      g_free (photo_resource_urn);
     }
 
  out:
