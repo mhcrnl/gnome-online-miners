@@ -453,14 +453,17 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   if (*error != NULL)
     goto out;
 
-  gom_tracker_sparql_connection_insert_or_replace_triple
-    (connection,
-     cancellable, error,
-     datasource_urn, resource,
-     "nie:isPartOf", parent_resource_urn);
+  if (parent_resource_urn != NULL)
+    {
+      gom_tracker_sparql_connection_insert_or_replace_triple
+        (connection,
+         cancellable, error,
+         datasource_urn, resource,
+         "nie:isPartOf", parent_resource_urn);
 
-  if (*error != NULL)
-    goto out;
+      if (*error != NULL)
+        goto out;
+    }
 
   mime = gdata_media_content_get_content_type (GDATA_MEDIA_CONTENT (media_contents->data));
   gom_tracker_sparql_connection_insert_or_replace_triple
