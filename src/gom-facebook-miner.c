@@ -36,6 +36,7 @@ G_DEFINE_TYPE (GomFacebookMiner, gom_facebook_miner, GOM_TYPE_MINER)
 static gboolean
 account_miner_job_process_photo (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
+                                 GHashTable *previous_resources,
                                  GFBGraphPhoto *photo,
                                  const gchar *parent_resource_urn,
                                  const gchar *creator,
@@ -62,7 +63,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   identifier = g_strdup_printf ("facebook:%s", photo_id);
 
   /* remove from the list of the previous resources */
-  g_hash_table_remove (job->previous_resources, identifier);
+  g_hash_table_remove (previous_resources, identifier);
 
   resource = gom_tracker_sparql_connection_ensure_resource
     (connection,
@@ -179,6 +180,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 static gboolean
 account_miner_job_process_album (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
+                                 GHashTable *previous_resources,
                                  GFBGraphAlbum *album,
                                  const gchar *creator,
                                  GCancellable *cancellable,
@@ -208,7 +210,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
   identifier = g_strdup_printf ("photos:collection:facebook:%s", album_id);
 
   /* remove from the list of the previous resources */
-  g_hash_table_remove (job->previous_resources, identifier);
+  g_hash_table_remove (previous_resources, identifier);
 
   resource = gom_tracker_sparql_connection_ensure_resource
     (connection,
@@ -299,7 +301,14 @@ account_miner_job_process_album (GomAccountMinerJob *job,
       GError *local_error = NULL;
       GFBGraphPhoto *photo = GFBGRAPH_PHOTO (l->data);
 
-      account_miner_job_process_photo (job, connection, photo, resource, creator, cancellable, &local_error);
+      account_miner_job_process_photo (job,
+                                       connection,
+                                       previous_resources,
+                                       photo,
+                                       resource,
+                                       creator,
+                                       cancellable,
+                                       &local_error);
       if (local_error != NULL)
         {
           const gchar *photo_id;
@@ -325,6 +334,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
 static void
 query_facebook (GomAccountMinerJob *job,
                 TrackerSparqlConnection *connection,
+                GHashTable *previous_resources,
                 GCancellable *cancellable,
                 GError **error)
 {
@@ -360,7 +370,7 @@ query_facebook (GomAccountMinerJob *job,
     {
       GFBGraphAlbum *album = GFBGRAPH_ALBUM (l->data);
 
-      account_miner_job_process_album (job, connection, album, me_name, cancellable, &local_error);
+      account_miner_job_process_album (job, connection, previous_resources, album, me_name, cancellable, &local_error);
       if (local_error != NULL)
         {
           const gchar *album_id;

@@ -49,6 +49,7 @@ typedef struct {
 typedef struct {
   FlickrEntry *parent_entry;
   GCancellable *cancellable;
+  GHashTable *previous_resources;
   GMainLoop *loop;
   GomAccountMinerJob *job;
   GrlSource *source;
@@ -58,6 +59,7 @@ typedef struct {
 
 static void account_miner_job_browse_container (GomAccountMinerJob *job,
                                                 TrackerSparqlConnection *connection,
+                                                GHashTable *previous_resources,
                                                 FlickrEntry *entry,
                                                 GCancellable *cancellable);
 
@@ -101,6 +103,7 @@ get_grl_options (GrlSource *source)
 static gboolean
 account_miner_job_process_entry (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
+                                 GHashTable *previous_resources,
                                  OpType op_type,
                                  FlickrEntry *entry,
                                  GCancellable *cancellable,
@@ -126,7 +129,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
                                 id);
 
   /* remove from the list of the previous resources */
-  g_hash_table_remove (job->previous_resources, identifier);
+  g_hash_table_remove (previous_resources, identifier);
 
   if (grl_media_is_container (entry->media))
     class = "nfo:DataContainer";
@@ -309,6 +312,7 @@ source_browse_cb (GrlSource *source,
       entry = create_entry (media, data->parent_entry->media);
       account_miner_job_process_entry (data->job,
                                        data->connection,
+                                       data->previous_resources,
                                        OP_CREATE_HIEARCHY,
                                        entry,
                                        data->cancellable,
@@ -332,6 +336,7 @@ source_browse_cb (GrlSource *source,
 static void
 account_miner_job_browse_container (GomAccountMinerJob *job,
                                     TrackerSparqlConnection *connection,
+                                    GHashTable *previous_resources,
                                     FlickrEntry *entry,
                                     GCancellable *cancellable)
 {
@@ -345,6 +350,7 @@ account_miner_job_browse_container (GomAccountMinerJob *job,
   data.connection = connection;
   data.parent_entry = entry;
   data.job = job;
+  data.previous_resources = previous_resources;
 
   context = g_main_context_new ();
   g_main_context_push_thread_default (context);
@@ -391,7 +397,13 @@ source_search_cb (GrlSource *source,
       FlickrEntry *entry;
 
       entry = create_entry (media, NULL);
-      account_miner_job_process_entry (data->job, data->connection, OP_FETCH_ALL, entry, data->cancellable, &local_error);
+      account_miner_job_process_entry (data->job,
+                                       data->connection,
+                                       data->previous_resources,
+                                       OP_FETCH_ALL,
+                                       entry,
+                                       data->cancellable,
+                                       &local_error);
       if (local_error != NULL)
         {
           g_warning ("Unable to process entry %p: %s", media, local_error->message);
@@ -408,6 +420,7 @@ source_search_cb (GrlSource *source,
 static void
 query_flickr (GomAccountMinerJob *job,
               TrackerSparqlConnection *connection,
+              GHashTable *previous_resources,
               GCancellable *cancellable,
               GError **error)
 {
@@ -439,6 +452,7 @@ query_flickr (GomAccountMinerJob *job,
   data.cancellable = cancellable;
   data.connection = connection;
   data.job = job;
+  data.previous_resources = previous_resources;
   context = g_main_context_new ();
   g_main_context_push_thread_default (context);
   data.loop = g_main_loop_new (context, FALSE);
@@ -454,13 +468,13 @@ query_flickr (GomAccountMinerJob *job,
   g_main_context_unref (context);
 
   entry = create_entry (NULL, NULL);
-  account_miner_job_browse_container (job, connection, entry, cancellable);
+  account_miner_job_browse_container (job, connection, previous_resources, entry, cancellable);
   free_entry (entry);
 
   while (!g_queue_is_empty (priv->boxes))
     {
       entry = (FlickrEntry *) g_queue_pop_head (priv->boxes);
-      account_miner_job_browse_container (job, connection, entry, cancellable);
+      account_miner_job_browse_container (job, connection, previous_resources, entry, cancellable);
       free_entry (entry);
     }
 }

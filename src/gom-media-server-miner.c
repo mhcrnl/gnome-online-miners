@@ -41,6 +41,7 @@ G_DEFINE_TYPE_WITH_PRIVATE (GomMediaServerMiner, gom_media_server_miner, GOM_TYP
 static gboolean
 account_miner_job_process_photo (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
+                                 GHashTable *previous_resources,
                                  GomDlnaPhotoItem *photo,
                                  GCancellable *cancellable,
                                  GError **error)
@@ -57,7 +58,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   identifier = g_strdup_printf ("media-server:%s", photo_id);
 
   /* remove from the list of the previous resources */
-  g_hash_table_remove (job->previous_resources, identifier);
+  g_hash_table_remove (previous_resources, identifier);
 
   resource = gom_tracker_sparql_connection_ensure_resource
     (connection,
@@ -118,6 +119,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 static void
 query_media_server (GomAccountMinerJob *job,
                     TrackerSparqlConnection *connection,
+                    GHashTable *previous_resources,
                     GCancellable *cancellable,
                     GError **error)
 {
@@ -153,7 +155,7 @@ query_media_server (GomAccountMinerJob *job,
     {
       GomDlnaPhotoItem *photo = (GomDlnaPhotoItem *) l->data;
 
-      account_miner_job_process_photo (job, connection, photo, cancellable, &local_error);
+      account_miner_job_process_photo (job, connection, previous_resources, photo, cancellable, &local_error);
       if (local_error != NULL)
         {
           g_warning ("Unable to process photo: %s", local_error->message);

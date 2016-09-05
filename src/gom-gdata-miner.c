@@ -57,6 +57,7 @@ generate_fake_email_from_fullname (const gchar *fullname)
 static gboolean
 account_miner_job_process_entry (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
+                                 GHashTable *previous_resources,
                                  GDataDocumentsService *service,
                                  GDataDocumentsEntry *doc_entry,
                                  GCancellable *cancellable,
@@ -99,7 +100,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
     }
 
   /* remove from the list of the previous resources */
-  g_hash_table_remove (job->previous_resources, identifier);
+  g_hash_table_remove (previous_resources, identifier);
 
   if (GDATA_IS_DOCUMENTS_PRESENTATION (doc_entry))
     class = "nfo:Presentation";
@@ -336,6 +337,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
 static gboolean
 account_miner_job_process_photo (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
+                                 GHashTable *previous_resources,
                                  GDataPicasaWebFile *photo,
                                  const gchar *parent_resource_urn,
                                  GCancellable *cancellable,
@@ -390,7 +392,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   identifier = g_strdup_printf ("%s%s", PREFIX_PICASAWEB, id);
 
   /* remove from the list of the previous resources */
-  g_hash_table_remove (job->previous_resources, identifier);
+  g_hash_table_remove (previous_resources, identifier);
 
   resource = gom_tracker_sparql_connection_ensure_resource
     (connection,
@@ -623,6 +625,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 static gboolean
 account_miner_job_process_album (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
+                                 GHashTable *previous_resources,
                                  GDataPicasaWebService *service,
                                  GDataPicasaWebAlbum *album,
                                  GCancellable *cancellable,
@@ -651,7 +654,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
   identifier = g_strdup_printf ("photos:collection:%s%s", PREFIX_PICASAWEB, album_id);
 
   /* remove from the list of the previous resources */
-  g_hash_table_remove (job->previous_resources, identifier);
+  g_hash_table_remove (previous_resources, identifier);
 
   resource = gom_tracker_sparql_connection_ensure_resource
     (connection,
@@ -770,7 +773,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
     {
       GDataPicasaWebFile *file = GDATA_PICASAWEB_FILE (l->data);
 
-      account_miner_job_process_photo (job, connection, file, resource, cancellable, error);
+      account_miner_job_process_photo (job, connection, previous_resources, file, resource, cancellable, error);
 
       if (*error != NULL)
         {
@@ -796,6 +799,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
 static void
 query_gdata_documents (GomAccountMinerJob *job,
                        TrackerSparqlConnection *connection,
+                       GHashTable *previous_resources,
                        GDataDocumentsService *service,
                        GCancellable *cancellable,
                        GError **error)
@@ -840,7 +844,13 @@ query_gdata_documents (GomAccountMinerJob *job,
       for (l = entries; l != NULL; l = l->next)
         {
           local_error = NULL;
-          account_miner_job_process_entry (job, connection, service, l->data, cancellable, &local_error);
+          account_miner_job_process_entry (job,
+                                           connection,
+                                           previous_resources,
+                                           service,
+                                           l->data,
+                                           cancellable,
+                                           &local_error);
 
           if (local_error != NULL)
             {
@@ -861,6 +871,7 @@ query_gdata_documents (GomAccountMinerJob *job,
 static void
 query_gdata_photos (GomAccountMinerJob *job,
                     TrackerSparqlConnection *connection,
+                    GHashTable *previous_resources,
                     GDataPicasaWebService *service,
                     GCancellable *cancellable,
                     GError **error)
@@ -878,7 +889,7 @@ query_gdata_photos (GomAccountMinerJob *job,
     {
       GDataPicasaWebAlbum *album = GDATA_PICASAWEB_ALBUM (l->data);
 
-      account_miner_job_process_album (job, connection, service, album, cancellable, error);
+      account_miner_job_process_album (job, connection, previous_resources, service, album, cancellable, error);
 
       if (*error != NULL)
         {
@@ -896,6 +907,7 @@ query_gdata_photos (GomAccountMinerJob *job,
 static void
 query_gdata (GomAccountMinerJob *job,
              TrackerSparqlConnection *connection,
+             GHashTable *previous_resources,
              GCancellable *cancellable,
              GError **error)
 {
@@ -903,11 +915,11 @@ query_gdata (GomAccountMinerJob *job,
 
   service = g_hash_table_lookup (job->services, "documents");
   if (service != NULL)
-    query_gdata_documents (job, connection, GDATA_DOCUMENTS_SERVICE (service), cancellable, error);
+    query_gdata_documents (job, connection, previous_resources, GDATA_DOCUMENTS_SERVICE (service), cancellable, error);
 
   service = g_hash_table_lookup (job->services, "photos");
   if (service != NULL)
-    query_gdata_photos (job, connection, GDATA_PICASAWEB_SERVICE (service), cancellable, error);
+    query_gdata_photos (job, connection, previous_resources, GDATA_PICASAWEB_SERVICE (service), cancellable, error);
 }
 
 static GHashTable *

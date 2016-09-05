@@ -52,6 +52,7 @@ typedef struct {
 static gboolean
 account_miner_job_process_file (GomAccountMinerJob *job,
                                 TrackerSparqlConnection *connection,
+                                GHashTable *previous_resources,
                                 GFile *file,
                                 GFileInfo *info,
                                 GFile *parent,
@@ -83,7 +84,7 @@ account_miner_job_process_file (GomAccountMinerJob *job,
   g_checksum_reset (checksum);
 
   /* remove from the list of the previous resources */
-  g_hash_table_remove (job->previous_resources, identifier);
+  g_hash_table_remove (previous_resources, identifier);
 
   name = g_file_info_get_name (info);
   if (type == G_FILE_TYPE_REGULAR)
@@ -214,6 +215,7 @@ account_miner_job_process_file (GomAccountMinerJob *job,
 static void
 account_miner_job_traverse_dir (GomAccountMinerJob *job,
                                 TrackerSparqlConnection *connection,
+                                GHashTable *previous_resources,
                                 GFile *dir,
                                 gboolean is_root,
                                 GCancellable *cancellable,
@@ -246,7 +248,14 @@ account_miner_job_traverse_dir (GomAccountMinerJob *job,
 
       if (type == G_FILE_TYPE_REGULAR || type == G_FILE_TYPE_DIRECTORY)
         {
-          account_miner_job_process_file (job, connection, child, info, is_root ? NULL : dir, cancellable, &local_error);
+          account_miner_job_process_file (job,
+                                          connection,
+                                          previous_resources,
+                                          child,
+                                          info,
+                                          is_root ? NULL : dir,
+                                          cancellable,
+                                          &local_error);
           if (local_error != NULL)
             {
               uri = g_file_get_uri (child);
@@ -258,7 +267,7 @@ account_miner_job_traverse_dir (GomAccountMinerJob *job,
 
       if (type == G_FILE_TYPE_DIRECTORY)
         {
-          account_miner_job_traverse_dir (job, connection, child, FALSE, cancellable, &local_error);
+          account_miner_job_traverse_dir (job, connection, previous_resources, child, FALSE, cancellable, &local_error);
           if (local_error != NULL)
             {
               uri = g_file_get_uri (child);
@@ -338,6 +347,7 @@ volume_mount_cb (GObject *source_object, GAsyncResult *res, gpointer user_data)
 static void
 query_owncloud (GomAccountMinerJob *job,
                 TrackerSparqlConnection *connection,
+                GHashTable *previous_resources,
                 GCancellable *cancellable,
                 GError **error)
 {
@@ -415,7 +425,7 @@ query_owncloud (GomAccountMinerJob *job,
     }
 
   root = g_mount_get_root (mount);
-  account_miner_job_traverse_dir (job, connection, root, TRUE, cancellable, error);
+  account_miner_job_traverse_dir (job, connection, previous_resources, root, TRUE, cancellable, error);
 
   g_object_unref (root);
   g_object_unref (mount);

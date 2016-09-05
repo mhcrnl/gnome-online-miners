@@ -36,6 +36,7 @@ G_DEFINE_TYPE (GomZpjMiner, gom_zpj_miner, GOM_TYPE_MINER)
 static gboolean
 account_miner_job_process_entry (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
+                                 GHashTable *previous_resources,
                                  ZpjSkydriveEntry *entry,
                                  GCancellable *cancellable,
                                  GError **error)
@@ -55,7 +56,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
                                 id);
 
   /* remove from the list of the previous resources */
-  g_hash_table_remove (job->previous_resources, identifier);
+  g_hash_table_remove (previous_resources, identifier);
 
   name = zpj_skydrive_entry_get_name (entry);
 
@@ -210,6 +211,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
 static void
 account_miner_job_traverse_folder (GomAccountMinerJob *job,
                                    TrackerSparqlConnection *connection,
+                                   GHashTable *previous_resources,
                                    const gchar *folder_id,
                                    GCancellable *cancellable,
                                    GError **error)
@@ -245,14 +247,14 @@ account_miner_job_traverse_folder (GomAccountMinerJob *job,
 
       if (ZPJ_IS_SKYDRIVE_FOLDER (entry))
         {
-          account_miner_job_traverse_folder (job, connection, id, cancellable, error);
+          account_miner_job_traverse_folder (job, connection, previous_resources, id, cancellable, error);
           if (*error != NULL)
             goto out;
         }
       else if (ZPJ_IS_SKYDRIVE_PHOTO (entry))
         continue;
 
-      account_miner_job_process_entry (job, connection, entry, cancellable, error);
+      account_miner_job_process_entry (job, connection, previous_resources, entry, cancellable, error);
 
       if (*error != NULL)
         {
@@ -269,11 +271,13 @@ account_miner_job_traverse_folder (GomAccountMinerJob *job,
 static void
 query_zpj (GomAccountMinerJob *job,
            TrackerSparqlConnection *connection,
+           GHashTable *previous_resources,
            GCancellable *cancellable,
            GError **error)
 {
   account_miner_job_traverse_folder (job,
                                      connection,
+                                     previous_resources,
                                      ZPJ_SKYDRIVE_FOLDER_SKYDRIVE,
                                      cancellable,
                                      error);
