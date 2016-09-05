@@ -93,6 +93,7 @@ struct _GomMinerClass
   void (*query) (GomAccountMinerJob *job,
                  TrackerSparqlConnection *connection,
                  GHashTable *previous_resources,
+                 const gchar *datasource_urn,
                  GCancellable *cancellable,
                  GError **error);
 };

@@ -58,6 +58,7 @@ static gboolean
 account_miner_job_process_entry (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
                                  GHashTable *previous_resources,
+                                 const gchar *datasource_urn,
                                  GDataDocumentsService *service,
                                  GDataDocumentsEntry *doc_entry,
                                  GCancellable *cancellable,
@@ -119,13 +120,13 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
     (connection,
      cancellable, error,
      &resource_exists,
-     job->datasource_urn, identifier,
+     datasource_urn, identifier,
      "nfo:RemoteDataObject", class, NULL);
 
   if (*error != NULL)
     goto out;
 
-  gom_tracker_update_datasource (connection, job->datasource_urn,
+  gom_tracker_update_datasource (connection, datasource_urn,
                                  resource_exists, identifier, resource,
                                  cancellable, error);
 
@@ -153,7 +154,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:url", alternate_uri);
 
   if (*error != NULL)
@@ -168,7 +169,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:mimeType", mimetype_override);
 
   if (*error != NULL)
@@ -186,7 +187,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
       parent_resource_urn = gom_tracker_sparql_connection_ensure_resource
         (connection, cancellable, error,
          NULL,
-         job->datasource_urn, parent_resource_id,
+         datasource_urn, parent_resource_id,
          "nfo:RemoteDataObject", "nfo:DataContainer", NULL);
       g_free (parent_resource_id);
 
@@ -196,7 +197,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
       gom_tracker_sparql_connection_insert_or_replace_triple
         (connection,
          cancellable, error,
-         job->datasource_urn, resource,
+         datasource_urn, resource,
          "nie:isPartOf", parent_resource_urn);
       g_free (parent_resource_urn);
 
@@ -226,7 +227,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:description", gdata_entry_get_summary (entry));
 
   if (*error != NULL)
@@ -235,7 +236,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:title", gdata_entry_get_title (entry));
 
   if (*error != NULL)
@@ -259,7 +260,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
       gom_tracker_sparql_connection_insert_or_replace_triple
         (connection,
          cancellable, error,
-         job->datasource_urn, resource,
+         datasource_urn, resource,
          "nco:creator", contact_resource);
 
       if (*error != NULL)
@@ -301,7 +302,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
       gom_tracker_sparql_connection_insert_or_replace_triple
         (connection,
          cancellable, error,
-         job->datasource_urn, resource,
+         datasource_urn, resource,
          "nco:contributor", contact_resource);
 
       g_free (contact_resource);
@@ -314,7 +315,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:contentCreated", date);
   g_free (date);
 
@@ -338,6 +339,7 @@ static gboolean
 account_miner_job_process_photo (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
                                  GHashTable *previous_resources,
+                                 const gchar *datasource_urn,
                                  GDataPicasaWebFile *photo,
                                  const gchar *parent_resource_urn,
                                  GCancellable *cancellable,
@@ -398,13 +400,13 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
     (connection,
      cancellable, error,
      &resource_exists,
-     job->datasource_urn, identifier,
+     datasource_urn, identifier,
      "nfo:RemoteDataObject", "nmm:Photo", NULL);
 
   if (*error != NULL)
     goto out;
 
-  gom_tracker_update_datasource (connection, job->datasource_urn,
+  gom_tracker_update_datasource (connection, datasource_urn,
                                  resource_exists, identifier, resource,
                                  cancellable, error);
   if (*error != NULL)
@@ -433,7 +435,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:url", alternate_uri);
 
   if (*error != NULL)
@@ -443,7 +445,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:description", summary);
 
   if (*error != NULL)
@@ -452,7 +454,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:isPartOf", parent_resource_urn);
 
   if (*error != NULL)
@@ -462,7 +464,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:mimeType", mime);
 
   if (*error != NULL)
@@ -472,7 +474,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:title", title);
 
   if (*error != NULL)
@@ -492,7 +494,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nco:creator", contact_resource);
 
   g_free (contact_resource);
@@ -503,7 +505,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nmm:exposureTime", exposure);
   g_free (exposure);
 
@@ -514,7 +516,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nmm:focalLength", focal_length);
   g_free (focal_length);
 
@@ -525,7 +527,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nmm:fnumber", fstop);
   g_free (fstop);
 
@@ -536,7 +538,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nmm:isoSpeed", iso);
   g_free (iso);
 
@@ -547,7 +549,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nmm:flash", flash ? flash_on : flash_off);
 
   if (*error != NULL)
@@ -570,7 +572,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
       gom_tracker_sparql_connection_insert_or_replace_triple
         (connection,
          cancellable, error,
-         job->datasource_urn, resource,
+         datasource_urn, resource,
          "nfo:equipment", equipment_resource);
 
       if (*error != NULL)
@@ -581,7 +583,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nfo:width", width);
   g_free (width);
 
@@ -592,7 +594,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nfo:height", height);
   g_free (height);
 
@@ -604,7 +606,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:contentCreated", date);
   g_free (date);
 
@@ -626,6 +628,7 @@ static gboolean
 account_miner_job_process_album (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
                                  GHashTable *previous_resources,
+                                 const gchar *datasource_urn,
                                  GDataPicasaWebService *service,
                                  GDataPicasaWebAlbum *album,
                                  GCancellable *cancellable,
@@ -660,7 +663,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
     (connection,
      cancellable, error,
      &resource_exists,
-     job->datasource_urn, identifier,
+     datasource_urn, identifier,
      "nfo:RemoteDataObject", "nfo:DataContainer",
      NULL);
 
@@ -668,7 +671,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
     goto out;
 
   gom_tracker_update_datasource
-    (connection, job->datasource_urn,
+    (connection, datasource_urn,
      resource_exists, identifier, resource,
      cancellable, error);
 
@@ -698,7 +701,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:url", alternate_uri);
 
   if (*error != NULL)
@@ -708,7 +711,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:description", summary);
 
   if (*error != NULL)
@@ -718,7 +721,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:title", title);
 
   if (*error != NULL)
@@ -738,7 +741,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nco:creator", contact_resource);
   g_free (contact_resource);
 
@@ -750,7 +753,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:contentCreated", date);
   g_free (date);
 
@@ -773,7 +776,14 @@ account_miner_job_process_album (GomAccountMinerJob *job,
     {
       GDataPicasaWebFile *file = GDATA_PICASAWEB_FILE (l->data);
 
-      account_miner_job_process_photo (job, connection, previous_resources, file, resource, cancellable, error);
+      account_miner_job_process_photo (job,
+                                       connection,
+                                       previous_resources,
+                                       datasource_urn,
+                                       file,
+                                       resource,
+                                       cancellable,
+                                       error);
 
       if (*error != NULL)
         {
@@ -800,6 +810,7 @@ static void
 query_gdata_documents (GomAccountMinerJob *job,
                        TrackerSparqlConnection *connection,
                        GHashTable *previous_resources,
+                       const gchar *datasource_urn,
                        GDataDocumentsService *service,
                        GCancellable *cancellable,
                        GError **error)
@@ -847,6 +858,7 @@ query_gdata_documents (GomAccountMinerJob *job,
           account_miner_job_process_entry (job,
                                            connection,
                                            previous_resources,
+                                           datasource_urn,
                                            service,
                                            l->data,
                                            cancellable,
@@ -872,6 +884,7 @@ static void
 query_gdata_photos (GomAccountMinerJob *job,
                     TrackerSparqlConnection *connection,
                     GHashTable *previous_resources,
+                    const gchar *datasource_urn,
                     GDataPicasaWebService *service,
                     GCancellable *cancellable,
                     GError **error)
@@ -889,7 +902,14 @@ query_gdata_photos (GomAccountMinerJob *job,
     {
       GDataPicasaWebAlbum *album = GDATA_PICASAWEB_ALBUM (l->data);
 
-      account_miner_job_process_album (job, connection, previous_resources, service, album, cancellable, error);
+      account_miner_job_process_album (job,
+                                       connection,
+                                       previous_resources,
+                                       datasource_urn,
+                                       service,
+                                       album,
+                                       cancellable,
+                                       error);
 
       if (*error != NULL)
         {
@@ -908,6 +928,7 @@ static void
 query_gdata (GomAccountMinerJob *job,
              TrackerSparqlConnection *connection,
              GHashTable *previous_resources,
+             const gchar *datasource_urn,
              GCancellable *cancellable,
              GError **error)
 {
@@ -915,11 +936,23 @@ query_gdata (GomAccountMinerJob *job,
 
   service = g_hash_table_lookup (job->services, "documents");
   if (service != NULL)
-    query_gdata_documents (job, connection, previous_resources, GDATA_DOCUMENTS_SERVICE (service), cancellable, error);
+    query_gdata_documents (job,
+                           connection,
+                           previous_resources,
+                           datasource_urn,
+                           GDATA_DOCUMENTS_SERVICE (service),
+                           cancellable,
+                           error);
 
   service = g_hash_table_lookup (job->services, "photos");
   if (service != NULL)
-    query_gdata_photos (job, connection, previous_resources, GDATA_PICASAWEB_SERVICE (service), cancellable, error);
+    query_gdata_photos (job,
+                        connection,
+                        previous_resources,
+                        datasource_urn,
+                        GDATA_PICASAWEB_SERVICE (service),
+                        cancellable,
+                        error);
 }
 
 static GHashTable *

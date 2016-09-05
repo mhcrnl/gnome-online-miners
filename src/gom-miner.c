@@ -292,7 +292,7 @@ gom_account_miner_job_query (GomAccountMinerJob *job,
   GCancellable *cancellable;
 
   cancellable = g_task_get_cancellable (job->task);
-  miner_class->query (job, job->connection, job->previous_resources, cancellable, error);
+  miner_class->query (job, job->connection, job->previous_resources, job->datasource_urn, cancellable, error);
 }
 
 static void

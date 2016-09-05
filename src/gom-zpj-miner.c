@@ -37,6 +37,7 @@ static gboolean
 account_miner_job_process_entry (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
                                  GHashTable *previous_resources,
+                                 const gchar *datasource_urn,
                                  ZpjSkydriveEntry *entry,
                                  GCancellable *cancellable,
                                  GError **error)
@@ -69,13 +70,13 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
     (connection,
      cancellable, error,
      &resource_exists,
-     job->datasource_urn, identifier,
+     datasource_urn, identifier,
      "nfo:RemoteDataObject", class, NULL);
 
   if (*error != NULL)
     goto out;
 
-  gom_tracker_update_datasource (connection, job->datasource_urn,
+  gom_tracker_update_datasource (connection, datasource_urn,
                                  resource_exists, identifier, resource,
                                  cancellable, error);
 
@@ -101,7 +102,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:url", identifier);
 
   if (*error != NULL)
@@ -118,7 +119,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
       parent_resource_urn = gom_tracker_sparql_connection_ensure_resource
         (connection, cancellable, error,
          NULL,
-         job->datasource_urn, parent_identifier,
+         datasource_urn, parent_identifier,
          "nfo:RemoteDataObject", "nfo:DataContainer", NULL);
       g_free (parent_identifier);
 
@@ -128,7 +129,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
       gom_tracker_sparql_connection_insert_or_replace_triple
         (connection,
          cancellable, error,
-         job->datasource_urn, resource,
+         datasource_urn, resource,
          "nie:isPartOf", parent_resource_urn);
       g_free (parent_resource_urn);
 
@@ -141,7 +142,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
           gom_tracker_sparql_connection_insert_or_replace_triple
             (connection,
              cancellable, error,
-             job->datasource_urn, resource,
+             datasource_urn, resource,
              "nie:mimeType", mime);
           g_free (mime);
 
@@ -153,7 +154,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:description", zpj_skydrive_entry_get_description (entry));
 
   if (*error != NULL)
@@ -162,7 +163,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nfo:fileName", name);
 
   if (*error != NULL)
@@ -171,7 +172,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   contact_resource = gom_tracker_utils_ensure_contact_resource
     (connection,
      cancellable, error,
-     job->datasource_urn, zpj_skydrive_entry_get_from_name (entry));
+     datasource_urn, zpj_skydrive_entry_get_from_name (entry));
 
   if (*error != NULL)
     goto out;
@@ -179,7 +180,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nco:creator", contact_resource);
   g_free (contact_resource);
 
@@ -191,7 +192,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:contentCreated", date);
   g_free (date);
 
@@ -212,6 +213,7 @@ static void
 account_miner_job_traverse_folder (GomAccountMinerJob *job,
                                    TrackerSparqlConnection *connection,
                                    GHashTable *previous_resources,
+                                   const gchar *datasource_urn,
                                    const gchar *folder_id,
                                    GCancellable *cancellable,
                                    GError **error)
@@ -247,14 +249,14 @@ account_miner_job_traverse_folder (GomAccountMinerJob *job,
 
       if (ZPJ_IS_SKYDRIVE_FOLDER (entry))
         {
-          account_miner_job_traverse_folder (job, connection, previous_resources, id, cancellable, error);
+          account_miner_job_traverse_folder (job, connection, previous_resources, datasource_urn, id, cancellable, error);
           if (*error != NULL)
             goto out;
         }
       else if (ZPJ_IS_SKYDRIVE_PHOTO (entry))
         continue;
 
-      account_miner_job_process_entry (job, connection, previous_resources, entry, cancellable, error);
+      account_miner_job_process_entry (job, connection, previous_resources, datasource_urn, entry, cancellable, error);
 
       if (*error != NULL)
         {
@@ -272,12 +274,14 @@ static void
 query_zpj (GomAccountMinerJob *job,
            TrackerSparqlConnection *connection,
            GHashTable *previous_resources,
+           const gchar *datasource_urn,
            GCancellable *cancellable,
            GError **error)
 {
   account_miner_job_traverse_folder (job,
                                      connection,
                                      previous_resources,
+                                     datasource_urn,
                                      ZPJ_SKYDRIVE_FOLDER_SKYDRIVE,
                                      cancellable,
                                      error);

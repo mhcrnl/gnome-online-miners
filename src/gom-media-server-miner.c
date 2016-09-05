@@ -42,6 +42,7 @@ static gboolean
 account_miner_job_process_photo (GomAccountMinerJob *job,
                                  TrackerSparqlConnection *connection,
                                  GHashTable *previous_resources,
+                                 const gchar *datasource_urn,
                                  GomDlnaPhotoItem *photo,
                                  GCancellable *cancellable,
                                  GError **error)
@@ -64,13 +65,13 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
     (connection,
      cancellable, error,
      &resource_exists,
-     job->datasource_urn, identifier,
+     datasource_urn, identifier,
      "nfo:RemoteDataObject", class, NULL);
 
   if (*error != NULL)
     goto out;
 
-  gom_tracker_update_datasource (connection, job->datasource_urn,
+  gom_tracker_update_datasource (connection, datasource_urn,
                                  resource_exists, identifier, resource,
                                  cancellable, error);
   if (*error != NULL)
@@ -80,7 +81,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:url", photo->url);
 
   if (*error != NULL)
@@ -89,7 +90,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:mimeType", photo->mimetype);
 
   if (*error != NULL)
@@ -98,7 +99,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
-     job->datasource_urn, resource,
+     datasource_urn, resource,
      "nie:title", photo->name);
 
   if (*error != NULL)
@@ -120,6 +121,7 @@ static void
 query_media_server (GomAccountMinerJob *job,
                     TrackerSparqlConnection *connection,
                     GHashTable *previous_resources,
+                    const gchar *datasource_urn,
                     GCancellable *cancellable,
                     GError **error)
 {
@@ -155,7 +157,13 @@ query_media_server (GomAccountMinerJob *job,
     {
       GomDlnaPhotoItem *photo = (GomDlnaPhotoItem *) l->data;
 
-      account_miner_job_process_photo (job, connection, previous_resources, photo, cancellable, &local_error);
+      account_miner_job_process_photo (job,
+                                       connection,
+                                       previous_resources,
+                                       datasource_urn,
+                                       photo,
+                                       cancellable,
+                                       &local_error);
       if (local_error != NULL)
         {
           g_warning ("Unable to process photo: %s", local_error->message);
