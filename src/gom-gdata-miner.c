@@ -55,8 +55,7 @@ generate_fake_email_from_fullname (const gchar *fullname)
 }
 
 static gboolean
-account_miner_job_process_entry (GomAccountMinerJob *job,
-                                 TrackerSparqlConnection *connection,
+account_miner_job_process_entry (TrackerSparqlConnection *connection,
                                  GHashTable *previous_resources,
                                  const gchar *datasource_urn,
                                  GDataDocumentsService *service,
@@ -337,8 +336,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
 }
 
 static gboolean
-account_miner_job_process_photo (GomAccountMinerJob *job,
-                                 TrackerSparqlConnection *connection,
+account_miner_job_process_photo (TrackerSparqlConnection *connection,
                                  GHashTable *previous_resources,
                                  const gchar *datasource_urn,
                                  GDataPicasaWebFile *photo,
@@ -630,8 +628,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 }
 
 static gboolean
-account_miner_job_process_album (GomAccountMinerJob *job,
-                                 TrackerSparqlConnection *connection,
+account_miner_job_process_album (TrackerSparqlConnection *connection,
                                  GHashTable *previous_resources,
                                  const gchar *datasource_urn,
                                  GDataPicasaWebService *service,
@@ -782,8 +779,7 @@ account_miner_job_process_album (GomAccountMinerJob *job,
     {
       GDataPicasaWebFile *file = GDATA_PICASAWEB_FILE (l->data);
 
-      account_miner_job_process_photo (job,
-                                       connection,
+      account_miner_job_process_photo (connection,
                                        previous_resources,
                                        datasource_urn,
                                        file,
@@ -861,8 +857,7 @@ query_gdata_documents (GomAccountMinerJob *job,
       for (l = entries; l != NULL; l = l->next)
         {
           local_error = NULL;
-          account_miner_job_process_entry (job,
-                                           connection,
+          account_miner_job_process_entry (connection,
                                            previous_resources,
                                            datasource_urn,
                                            service,
@@ -908,8 +903,7 @@ query_gdata_photos (GomAccountMinerJob *job,
     {
       GDataPicasaWebAlbum *album = GDATA_PICASAWEB_ALBUM (l->data);
 
-      account_miner_job_process_album (job,
-                                       connection,
+      account_miner_job_process_album (connection,
                                        previous_resources,
                                        datasource_urn,
                                        service,
