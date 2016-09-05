@@ -40,6 +40,7 @@ G_DEFINE_TYPE_WITH_PRIVATE (GomMediaServerMiner, gom_media_server_miner, GOM_TYP
 
 static gboolean
 account_miner_job_process_photo (GomAccountMinerJob *job,
+                                 TrackerSparqlConnection *connection,
                                  GomDlnaPhotoItem *photo,
                                  GCancellable *cancellable,
                                  GError **error)
@@ -59,7 +60,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   g_hash_table_remove (job->previous_resources, identifier);
 
   resource = gom_tracker_sparql_connection_ensure_resource
-    (job->connection,
+    (connection,
      cancellable, error,
      &resource_exists,
      job->datasource_urn, identifier,
@@ -68,7 +69,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   if (*error != NULL)
     goto out;
 
-  gom_tracker_update_datasource (job->connection, job->datasource_urn,
+  gom_tracker_update_datasource (connection, job->datasource_urn,
                                  resource_exists, identifier, resource,
                                  cancellable, error);
   if (*error != NULL)
@@ -76,7 +77,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 
   /* the resource changed - just set all the properties again */
   gom_tracker_sparql_connection_insert_or_replace_triple
-    (job->connection,
+    (connection,
      cancellable, error,
      job->datasource_urn, resource,
      "nie:url", photo->url);
@@ -85,7 +86,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
     goto out;
 
   gom_tracker_sparql_connection_insert_or_replace_triple
-    (job->connection,
+    (connection,
      cancellable, error,
      job->datasource_urn, resource,
      "nie:mimeType", photo->mimetype);
@@ -94,7 +95,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
     goto out;
 
   gom_tracker_sparql_connection_insert_or_replace_triple
-    (job->connection,
+    (connection,
      cancellable, error,
      job->datasource_urn, resource,
      "nie:title", photo->name);
@@ -116,6 +117,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
 
 static void
 query_media_server (GomAccountMinerJob *job,
+                    TrackerSparqlConnection *connection,
                     GCancellable *cancellable,
                     GError **error)
 {
@@ -151,7 +153,7 @@ query_media_server (GomAccountMinerJob *job,
     {
       GomDlnaPhotoItem *photo = (GomDlnaPhotoItem *) l->data;
 
-      account_miner_job_process_photo (job, photo, cancellable, &local_error);
+      account_miner_job_process_photo (job, connection, photo, cancellable, &local_error);
       if (local_error != NULL)
         {
           g_warning ("Unable to process photo: %s", local_error->message);

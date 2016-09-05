@@ -91,6 +91,7 @@ struct _GomMinerClass
                                    GoaObject *object);
 
   void (*query) (GomAccountMinerJob *job,
+                 TrackerSparqlConnection *connection,
                  GCancellable *cancellable,
                  GError **error);
 };

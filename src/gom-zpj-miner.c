@@ -35,6 +35,7 @@ G_DEFINE_TYPE (GomZpjMiner, gom_zpj_miner, GOM_TYPE_MINER)
 
 static gboolean
 account_miner_job_process_entry (GomAccountMinerJob *job,
+                                 TrackerSparqlConnection *connection,
                                  ZpjSkydriveEntry *entry,
                                  GCancellable *cancellable,
                                  GError **error)
@@ -64,7 +65,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
     class = "nfo:DataContainer";
 
   resource = gom_tracker_sparql_connection_ensure_resource
-    (job->connection,
+    (connection,
      cancellable, error,
      &resource_exists,
      job->datasource_urn, identifier,
@@ -73,7 +74,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   if (*error != NULL)
     goto out;
 
-  gom_tracker_update_datasource (job->connection, job->datasource_urn,
+  gom_tracker_update_datasource (connection, job->datasource_urn,
                                  resource_exists, identifier, resource,
                                  cancellable, error);
 
@@ -82,7 +83,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
 
   updated_time = zpj_skydrive_entry_get_updated_time (entry);
   new_mtime = g_date_time_to_unix (updated_time);
-  mtime_changed = gom_tracker_update_mtime (job->connection, new_mtime,
+  mtime_changed = gom_tracker_update_mtime (connection, new_mtime,
                                             resource_exists, identifier, resource,
                                             cancellable, error);
 
@@ -97,7 +98,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
 
   /* the resource changed - just set all the properties again */
   gom_tracker_sparql_connection_insert_or_replace_triple
-    (job->connection,
+    (connection,
      cancellable, error,
      job->datasource_urn, resource,
      "nie:url", identifier);
@@ -114,7 +115,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
       parent_id = zpj_skydrive_entry_get_parent_id (entry);
       parent_identifier = g_strconcat ("gd:collection:windows-live:skydrive:", parent_id, NULL);
       parent_resource_urn = gom_tracker_sparql_connection_ensure_resource
-        (job->connection, cancellable, error,
+        (connection, cancellable, error,
          NULL,
          job->datasource_urn, parent_identifier,
          "nfo:RemoteDataObject", "nfo:DataContainer", NULL);
@@ -124,7 +125,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
         goto out;
 
       gom_tracker_sparql_connection_insert_or_replace_triple
-        (job->connection,
+        (connection,
          cancellable, error,
          job->datasource_urn, resource,
          "nie:isPartOf", parent_resource_urn);
@@ -137,7 +138,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
       if (mime != NULL)
         {
           gom_tracker_sparql_connection_insert_or_replace_triple
-            (job->connection,
+            (connection,
              cancellable, error,
              job->datasource_urn, resource,
              "nie:mimeType", mime);
@@ -149,7 +150,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
     }
 
   gom_tracker_sparql_connection_insert_or_replace_triple
-    (job->connection,
+    (connection,
      cancellable, error,
      job->datasource_urn, resource,
      "nie:description", zpj_skydrive_entry_get_description (entry));
@@ -158,7 +159,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
     goto out;
 
   gom_tracker_sparql_connection_insert_or_replace_triple
-    (job->connection,
+    (connection,
      cancellable, error,
      job->datasource_urn, resource,
      "nfo:fileName", name);
@@ -167,7 +168,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
     goto out;
 
   contact_resource = gom_tracker_utils_ensure_contact_resource
-    (job->connection,
+    (connection,
      cancellable, error,
      job->datasource_urn, zpj_skydrive_entry_get_from_name (entry));
 
@@ -175,7 +176,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
     goto out;
 
   gom_tracker_sparql_connection_insert_or_replace_triple
-    (job->connection,
+    (connection,
      cancellable, error,
      job->datasource_urn, resource,
      "nco:creator", contact_resource);
@@ -187,7 +188,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   created_time = zpj_skydrive_entry_get_created_time (entry);
   date = gom_iso8601_from_timestamp (g_date_time_to_unix (created_time));
   gom_tracker_sparql_connection_insert_or_replace_triple
-    (job->connection,
+    (connection,
      cancellable, error,
      job->datasource_urn, resource,
      "nie:contentCreated", date);
@@ -208,6 +209,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
 
 static void
 account_miner_job_traverse_folder (GomAccountMinerJob *job,
+                                   TrackerSparqlConnection *connection,
                                    const gchar *folder_id,
                                    GCancellable *cancellable,
                                    GError **error)
@@ -243,14 +245,14 @@ account_miner_job_traverse_folder (GomAccountMinerJob *job,
 
       if (ZPJ_IS_SKYDRIVE_FOLDER (entry))
         {
-          account_miner_job_traverse_folder (job, id, cancellable, error);
+          account_miner_job_traverse_folder (job, connection, id, cancellable, error);
           if (*error != NULL)
             goto out;
         }
       else if (ZPJ_IS_SKYDRIVE_PHOTO (entry))
         continue;
 
-      account_miner_job_process_entry (job, entry, cancellable, error);
+      account_miner_job_process_entry (job, connection, entry, cancellable, error);
 
       if (*error != NULL)
         {
@@ -266,10 +268,12 @@ account_miner_job_traverse_folder (GomAccountMinerJob *job,
 
 static void
 query_zpj (GomAccountMinerJob *job,
+           TrackerSparqlConnection *connection,
            GCancellable *cancellable,
            GError **error)
 {
   account_miner_job_traverse_folder (job,
+                                     connection,
                                      ZPJ_SKYDRIVE_FOLDER_SKYDRIVE,
                                      cancellable,
                                      error);
