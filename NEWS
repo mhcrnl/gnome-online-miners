@@ -1,3 +1,11 @@
+Overview of changes in 3.21.91
+==============================
+
+* Bugs fixed:
+ 770889 Port to GTask & GThreadPool, and fix some associated problems
+ 770899 Support inserting a single shared item
+
+
 Overview of changes in 3.20.1
 =============================
 
