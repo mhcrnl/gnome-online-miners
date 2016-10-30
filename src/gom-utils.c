@@ -87,10 +87,22 @@ gom_filename_to_rdf_type (const gchar *filename_with_extension)
       || g_strcmp0 (extension, ".docx") == 0
       || g_strcmp0 (extension, ".dot") == 0
       || g_strcmp0 (extension, ".dotx") == 0
-      || g_strcmp0 (extension, ".epub") == 0
       || g_strcmp0 (extension, ".odt") == 0
       || g_strcmp0 (extension, ".pdf") == 0)
     type = "nfo:PaginatedTextDocument";
+
+  else if (g_strcmp0 (extension, ".epub") == 0
+           || g_strcmp0 (extension, ".djv") == 0
+           || g_strcmp0 (extension, ".djvu") == 0
+           || g_strcmp0 (extension, ".cbr") == 0
+           || g_strcmp0 (extension, ".cbz") == 0
+           || g_strcmp0 (extension, ".cbt") == 0
+           || g_strcmp0 (extension, ".cb7") == 0
+           || g_strcmp0 (extension, ".fb2") == 0
+           || g_strcmp0 (extension, ".fb2.zip") == 0
+           || g_strcmp0 (extension, ".mobi") == 0
+           || g_strcmp0 (extension, ".prc") == 0)
+    type = "nfo:EBook";
 
   else if (g_strcmp0 (extension, ".odp") == 0
            || g_strcmp0 (extension, ".pot") == 0
