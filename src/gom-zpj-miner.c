@@ -46,6 +46,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   gchar *contact_resource;
   gchar *resource = NULL;
   gchar *date, *identifier;
+  gchar *url = NULL;
   const gchar *class = NULL, *id, *name;
   gboolean resource_exists, mtime_changed;
   gint64 new_mtime;
@@ -99,11 +100,12 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
     goto out;
 
   /* the resource changed - just set all the properties again */
+  url = g_strconcat ("http://onedrive.com/", id, NULL);
   gom_tracker_sparql_connection_insert_or_replace_triple
     (connection,
      cancellable, error,
      datasource_urn, resource,
-     "nie:url", identifier);
+     "nie:url", url);
 
   if (*error != NULL)
     goto out;
@@ -202,6 +204,7 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
  out:
   g_free (resource);
   g_free (identifier);
+  g_free (url);
 
   if (*error != NULL)
     return FALSE;
@@ -324,7 +327,7 @@ gom_zpj_miner_class_init (GomZpjMinerClass *klass)
 
   miner_class->goa_provider_type = "windows_live";
   miner_class->miner_identifier = MINER_IDENTIFIER;
-  miner_class->version = 1;
+  miner_class->version = 2;
 
   miner_class->create_services = create_services;
   miner_class->query = query_zpj;
